@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Secrets & local config
+config.json
+.env
+*.key
+
+# Generated data
+data/
+demo/*.mp4
+demo/*.avi
+!demo/.gitkeep
+
+# Frontend build output
+frontend/node_modules/
+frontend/.next/
+frontend/.npm-cache/
+
+# Build artifacts / logs
+*.zip
+*.log
+
+# Scratch / local screenshots (not part of the project)
+Mushroom/
+screenshot pic/
+
+# Models — the .onnx is the default; keep the two .pt models used at runtime
+*.pt
+!yolov8n.pt
+!yolov8n-pose.pt
+runs/

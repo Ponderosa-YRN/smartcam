@@ -1,0 +1,13 @@
+# SmartCam — lean cloud control plane (NO PyTorch/OpenCV/ultralytics).
+# Detection runs on edge boxes; the cloud only stores + serves data.
+# Used by api.Dockerfile and SMART_CAM_CLOUD_ONLY=1.
+
+fastapi>=0.110
+uvicorn[standard]>=0.27
+httpx>=0.27
+itsdangerous>=2.1
+requests>=2.31
+python-multipart>=0.0.9
+numpy>=1.26
+SQLAlchemy>=2.0
+psycopg[binary]>=3.1

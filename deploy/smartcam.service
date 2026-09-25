@@ -1,0 +1,14 @@
+[Unit]
+Description=SmartCam API (headless)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/smartcam
+ExecStart=/opt/smartcam/.venv/bin/python run_api.py --port 8000
+Restart=always
+RestartSec=5
+Environment=SMART_CAM_CONFIG=/opt/smartcam/config.json
+
+[Install]
+WantedBy=multi-user.target

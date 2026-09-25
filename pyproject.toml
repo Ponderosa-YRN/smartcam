@@ -1,0 +1,26 @@
+[project]
+name = "smartcam"
+version = "0.1.0"
+description = "YOLOv8 smart security camera platform"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_ml_logic.py", "test_auth.py", "test_storage.py", "test_billing.py", "test_secrets.py", "test_ingest.py", "test_jobs.py", "test_webrtc.py", "test_control.py"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_unused_ignores = false
+exclude = [".venv", "data"]

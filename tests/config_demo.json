@@ -1,0 +1,47 @@
+{
+  "sources": [
+    {
+      "id": "demo",
+      "name": "Demo clip",
+      "uri": "demo/demo.avi",
+      "enabled": true
+    }
+  ],
+  "detection": {
+    "model": "yolov8n.pt",
+    "imgsz": 640,
+    "conf": 0.3,
+    "iou": 0.45,
+    "tracker": "bytetrack.yaml",
+    "frame_stride": 1,
+    "classes": []
+  },
+  "events": {
+    "trigger_classes": [
+      "person"
+    ],
+    "min_presence_sec": 0.5,
+    "cooldown_sec": 5,
+    "clip_pre_sec": 1,
+    "clip_post_sec": 2,
+    "clip_fps": 15,
+    "clip_max_width": 960
+  },
+  "vlm": {
+    "enabled": false,
+    "provider": "openai",
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "",
+    "model": "gpt-4o-mini",
+    "max_keyframes": 3,
+    "timeout_sec": 60
+  },
+  "notify": {
+    "enabled": false,
+    "apprise_url": "",
+    "e2e_encrypt": false,
+    "ntfy_topic": "",
+    "ntfy_public_key": "",
+    "ntfy_server": "https://ntfy.sh"
+  }
+}

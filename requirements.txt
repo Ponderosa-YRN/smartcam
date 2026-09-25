@@ -1,0 +1,41 @@
+# SmartCam — YOLOv8 Smart Security Camera Platform (core runtime, CPU inference).
+#
+# torch/torchvision are installed separately from the CPU wheel index (see the
+# Dockerfile) to keep the image small.
+
+# -- core --------------------------------------------------------------
+numpy>=1.26
+pillow>=10.0
+opencv-python>=4.8
+streamlit>=1.57
+ultralytics>=8.3.0
+lap>=0.5.12           # ByteTrack multi-object tracking
+imageio-ffmpeg>=0.5   # bundled ffmpeg for clip writing
+apprise>=1.9          # notifications (ntfy / pushover / telegram / ...)
+requests>=2.31
+
+# -- backend REST API --------------------------------------------------
+fastapi>=0.100
+uvicorn[standard]>=0.30
+httpx>=0.27
+itsdangerous>=2.1
+python-multipart>=0.0.9
+
+# -- ONNX inference (yolov8n.onnx is the default model) ----------------
+onnx>=1.15
+onnxruntime>=1.17
+onnxslim>=0.1.34
+
+# -- database (SQLite default, Postgres via DATABASE_URL) --------------
+SQLAlchemy>=2.0
+psycopg[binary]>=3.1
+
+# -- webrtc low-latency live view -------------------------------------
+aiortc>=1.9
+
+# -- OPTIONAL heavy features (install on the edge box/worker that needs them) --
+# easyocr>=1.7                        # ANPR / license plates
+# deepface>=0.0.100                   # face recognition (pulls TensorFlow)
+# torchreid>=1.4.0                    # person re-identification (OSNet)
+# streamlit-drawable-canvas>=0.9.0    # visual zone drawing in Configuration
+# pynacl>=1.5                         # ntfy end-to-end encrypted notifications

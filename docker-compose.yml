@@ -1,0 +1,26 @@
+# SmartCam backend — deploy via Coolify ("Docker Compose" resource) or locally:
+#   docker compose up -d
+#
+# Uses the CI-built GHCR image. To build locally instead, comment out the image:
+# line and uncomment build: .
+#
+# Replace your-username with your GitHub username (the CI workflow pushes to
+# ghcr.io/<username>/smartcam:latest). Set secrets via Coolify's Environment
+# Variables UI — see .env.example for the full list.
+
+services:
+  smartcam:
+    image: ghcr.io/your-username/smartcam:latest
+    # build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - smartcam_data:/app/data
+      # - ./config.json:/app/config.json   # optional: run from a config file
+    environment:
+      PORT: "8000"
+      # SMART_CAM_CONFIG: /app/config.json
+    restart: unless-stopped
+
+volumes:
+  smartcam_data:
