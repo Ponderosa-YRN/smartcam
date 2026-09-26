@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getToken, getWebRTCConfig } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech";
 
 export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);

@@ -1,7 +1,7 @@
 // API client for the SmartCam backend. Tokens are stored in localStorage (v1).
 // TODO(hardening): switch to an httpOnly cookie via a Next.js server route.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech";
 const TOKEN_KEY = "smartcam_token";
 
 export function getToken(): string | null {
