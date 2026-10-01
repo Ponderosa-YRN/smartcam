@@ -1,8 +1,9 @@
-name: Frontend build + deploy
+name: Frontend build
 
-# Builds the Next.js app (next build) and deploys it to Vercel on main.
-# This runs the real production build — the step that can't run in this dev
-# sandbox — so it's also the frontend's "build test".
+# Production is served from the VPS (Caddy -> Next.js on :3000); deploys happen with
+# scripts/deploy_web.sh on the server. This workflow is the build safety net only: it
+# catches type/compile errors before they can reach production. No NEXT_PUBLIC_API_URL
+# is set, so the build uses the same same-origin /smartapi default as production.
 
 on:
   push:
@@ -35,14 +36,3 @@ jobs:
       - name: Build (next build)
         working-directory: frontend
         run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'https://smartcam-api.fly.dev' }}
-
-      - name: Deploy to Vercel (production)
-        if: github.ref == 'refs/heads/main'
-        working-directory: frontend
-        run: npx vercel deploy --prod --yes
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

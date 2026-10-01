@@ -1,5 +1,8 @@
 # SmartCam — Hostinger VPS Setup (step by step)
 
+> **Historical — not the live setup.** The dashboard no longer runs on Vercel; the whole
+> app is served from this VPS on one origin. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
 Deploy the SmartCam backend on your Hostinger VPS, using Coolify (recommended —
 it gives you a UI, auto-HTTPS, and easy Postgres later) or plain Docker.
 

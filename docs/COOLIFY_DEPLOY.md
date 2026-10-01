@@ -1,5 +1,8 @@
 # SmartCam — Step-by-Step Deployment on Coolify + Hetzner
 
+> **Historical — not the live setup.** Coolify was never used; the VPS runs plain Docker
+> behind Caddy. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
 A full, ordered walkthrough to get the SmartCam backend running on your own VPS.
 Follow every step in order. Budget ~45 minutes + the first build (~5-15 min).
 
