@@ -1,8 +1,18 @@
 // API client for the SmartCam backend. Tokens are stored in localStorage (v1).
 // TODO(hardening): switch to an httpOnly cookie via a Next.js server route.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech";
+// Relative by default: the browser calls its own origin and Next.js proxies the
+// request to the control plane (see next.config.mjs). Same-origin => no CORS.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/smartapi";
+const ABS_API = /^https?:\/\//i.test(API_URL);
 const TOKEN_KEY = "smartcam_token";
+
+function apiUrl(path: string): string {
+  if (ABS_API) return API_URL + path;
+  // Server-side render has no origin to resolve a relative URL against.
+  if (typeof window === "undefined") return "https://agay.tech" + path;
+  return API_URL + path;
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -23,7 +33,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   };
   if (token) headers["Authorization"] = "Bearer " + token;
 
-  const res = await fetch(API_URL + path, { ...init, headers });
+  const res = await fetch(apiUrl(path), { ...init, headers });
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -215,7 +225,7 @@ export async function fetchFrameBlob(sourceId: string): Promise<Blob> {
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(API_URL + "/api/frame/" + sourceId, { headers });
+  const res = await fetch(apiUrl("/api/frame/" + sourceId), { headers });
   if (!res.ok) throw new Error(res.status + ": " + res.statusText);
   return res.blob();
 }
@@ -224,7 +234,7 @@ export async function fetchClipBlob(eventId: number): Promise<Blob> {
   const token = getToken();
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(API_URL + "/api/clips/" + eventId, { headers });
+  const res = await fetch(apiUrl("/api/clips/" + eventId), { headers });
   if (!res.ok) throw new Error(res.status + ": " + res.statusText);
   return res.blob();
 }
@@ -255,7 +265,7 @@ export async function uploadVideo(file: File): Promise<{ path: string; filename:
   fd.append("file", file);
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = "Bearer " + token;
-  const res = await fetch(API_URL + "/api/upload", { method: "POST", body: fd, headers });
+  const res = await fetch(apiUrl("/api/upload"), { method: "POST", body: fd, headers });
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail ?? detail; } catch {}
