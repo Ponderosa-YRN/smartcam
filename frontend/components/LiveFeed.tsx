@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech").replace(/\/+$/, "");
 const WS_URL = (process.env.NEXT_PUBLIC_WS_URL ?? API_URL).replace(/^http/, "ws");
 
 export default function LiveFeed() {

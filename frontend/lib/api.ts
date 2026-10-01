@@ -3,7 +3,13 @@
 
 // Relative by default: the browser calls its own origin and Next.js proxies the
 // request to the control plane (see next.config.mjs). Same-origin => no CORS.
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/smartapi";
+// A trailing slash is stripped: "https://agay.tech/" + "/auth/login" would build
+// "//auth/login", which the API does not treat as a public path and rejects without
+// CORS headers. A value pointing at the API host itself is ignored in favour of the
+// same-origin proxy, which removes the cross-origin hop entirely.
+const ENV_API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+const POINTS_AT_API_HOST = /^https?:\/\/(www\.)?agay\.tech$/i.test(ENV_API_URL);
+const API_URL = ENV_API_URL && !POINTS_AT_API_HOST ? ENV_API_URL : "/smartapi";
 const ABS_API = /^https?:\/\//i.test(API_URL);
 const TOKEN_KEY = "smartcam_token";
 
