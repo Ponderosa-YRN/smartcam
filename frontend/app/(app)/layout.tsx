@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getToken, me } from "@/lib/api";
-import Nav from "@/components/Nav";
+import AppShell from "@/components/AppShell";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -20,13 +20,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   if (!user) {
-    return <div className="muted" style={{ padding: "2rem" }}>Loading…</div>;
+    return (
+      <div className="boot">
+        <div className="boot-spinner" />
+        <span className="muted">Loading SmartCam…</span>
+      </div>
+    );
   }
 
   return (
-    <>
-      <Nav role={user.role} username={user.username} />
+    <AppShell role={user.role} username={user.username}>
       {children}
-    </>
+    </AppShell>
   );
 }
