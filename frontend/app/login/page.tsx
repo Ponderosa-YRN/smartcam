@@ -7,7 +7,11 @@ import { login } from "@/lib/api";
 
 // Stamped at build time on Vercel so it is obvious whether the browser is showing a
 // freshly deployed page or a stale cached one.
-const BUILD = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "dev").slice(0, 7);
+const BUILD = (
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ??
+  process.env.NEXT_PUBLIC_BUILD ??
+  "dev"
+).slice(0, 7);
 
 export default function LoginPage() {
   const router = useRouter();

@@ -20,6 +20,9 @@ COPY . .
 # /smartapi prefix that Caddy routes to FastAPI, so no absolute API URL may be baked
 # in here. (.env.local is excluded by .dockerignore so a local HTTP value can never leak in.)
 ENV NEXT_PUBLIC_API_URL=""
+# Stamped into the login page so it is never ambiguous which build is live.
+ARG GIT_SHA=dev
+ENV NEXT_PUBLIC_BUILD=$GIT_SHA
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
