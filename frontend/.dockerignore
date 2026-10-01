@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+tsconfig.tsbuildinfo
+npm-debug.log*
+
+# Never bake local env values into an image (a stale NEXT_PUBLIC_API_URL here would
+# silently point the HTTPS dashboard at a plain-HTTP API).
+.env
+.env.*
