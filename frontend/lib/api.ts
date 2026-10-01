@@ -39,7 +39,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   };
   if (token) headers["Authorization"] = "Bearer " + token;
 
-  const res = await fetch(apiUrl(path), { ...init, headers });
+  const url = apiUrl(path);
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, headers });
+  } catch (err) {
+    // A rejected fetch carries no status and no body, which is how "Failed to fetch"
+    // hides the real cause. Name the endpoint that could not be reached instead.
+    throw new Error(
+      "Cannot reach the API at " + url + " (" + (err instanceof Error ? err.message : String(err)) + ")"
+    );
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {

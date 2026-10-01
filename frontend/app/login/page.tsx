@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/lib/api";
 
+// Stamped at build time on Vercel so it is obvious whether the browser is showing a
+// freshly deployed page or a stale cached one.
+const BUILD = (process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ?? "dev").slice(0, 7);
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -59,6 +63,9 @@ export default function LoginPage() {
       </form>
       <p className="muted" style={{ marginTop: "1rem" }}>
         New here? <Link href="/register">Create an account</Link>
+      </p>
+      <p className="muted" style={{ marginTop: "0.75rem", fontSize: "0.7rem", opacity: 0.55 }}>
+        build {BUILD}
       </p>
     </main>
   );
