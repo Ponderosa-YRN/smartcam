@@ -59,13 +59,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SmartCam API", version="0.1.0", lifespan=lifespan)
 
 _cors_origins = [o.strip() for o in os.environ.get("SMART_CAM_CORS_ORIGINS", "*").split(",") if o.strip()]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# NOTE: CORSMiddleware is registered further down, *after* auth_middleware, on purpose.
+# Starlette applies the most recently added middleware outermost, so adding CORS last
+# keeps it wrapped around auth_middleware. Registered here it would sit inside it, and
+# the 401 auth_middleware returns would reach the browser with no CORS headers at all -
+# which surfaces as an opaque "Failed to fetch" instead of a readable error.
 
 
 def _mgr() -> PipelineManager:
@@ -143,6 +141,17 @@ async def auth_middleware(request: Request, call_next):
         request.state.device = device
         return await call_next(request)
     return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+
+
+# Outermost middleware (see the note above where the origins are parsed): registered
+# after auth_middleware so every response - including auth 401s - carries CORS headers.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/auth/register")
