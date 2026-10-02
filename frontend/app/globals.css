@@ -350,6 +350,41 @@ input[type="file"] {
 }
 .chip:hover { background: var(--surface-hover); color: var(--text); }
 .spread { display: flex; align-items: center; gap: .6rem; }
+
+/* ---------- settings rows ---------- */
+.setting {
+  display: flex; align-items: flex-start; gap: 1rem;
+  padding: .7rem 0; border-bottom: 1px solid var(--border);
+}
+.setting:last-child { border-bottom: none; }
+.setting .meta { flex: 1; min-width: 0; }
+.setting .meta .name { font-weight: 500; }
+.setting .meta .help { color: var(--text-muted); font-size: .82rem; margin-top: .15rem; }
+.setting .control { flex: 0 0 auto; min-width: 190px; display: flex; justify-content: flex-end; }
+.setting .control input, .setting .control select { min-width: 180px; }
+
+.switch { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; }
+.switch input {
+  appearance: none; -webkit-appearance: none;
+  width: 40px; height: 23px; border-radius: 999px;
+  background: var(--border-strong); position: relative;
+  border: none; padding: 0; margin: 0; cursor: pointer;
+  transition: background .15s;
+}
+.switch input::after {
+  content: ""; position: absolute; top: 3px; left: 3px;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: #fff; transition: transform .15s;
+}
+.switch input:checked { background: var(--brand); }
+.switch input:checked::after { transform: translateX(17px); }
+.switch .state { color: var(--text-muted); font-size: .85rem; min-width: 2rem; }
+
+@media (max-width: 700px) {
+  .setting { flex-direction: column; gap: .35rem; }
+  .setting .control { width: 100%; justify-content: flex-start; }
+  .setting .control input, .setting .control select { width: 100%; min-width: 0; }
+}
 .assign-row { display: flex; gap: .4rem; align-items: center; margin-top: .55rem; flex-wrap: wrap; }
 
 /* ==========================================================================
