@@ -15,7 +15,9 @@ export default function InviteAcceptPage() {
 
   useEffect(() => {
     if (!token) return;
-    getInvitePreview(token).then(setPreview).catch((e) => setError(e.message));
+    getInvitePreview(token)
+      .then(setPreview)
+      .catch((e) => setError(e instanceof Error ? e.message : "Invalid invite"));
   }, [token]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -33,33 +35,69 @@ export default function InviteAcceptPage() {
   }
 
   return (
-    <main style={{ maxWidth: 420 }}>
-      <h1>🎥 SmartCam</h1>
-      {preview ? (
-        <>
-          <p>
-            You have been invited to join <strong>{preview.tenant}</strong> as{" "}
-            <strong>{preview.role}</strong> ({preview.email}).
-          </p>
-          <form onSubmit={onSubmit}>
-            <div className="field">
-              <label htmlFor="username">Choose a username</label>
-              <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} required />
+    <main className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <span className="mark" style={{ width: 34, height: 34, fontSize: 16 }}>
+            ◉
+          </span>
+          <div>
+            <h1>SmartCam</h1>
+            <p className="sub">Join your team</p>
+          </div>
+        </div>
+
+        {preview ? (
+          <>
+            <div className="card">
+              You have been invited to join <strong>{preview.tenant}</strong> as{" "}
+              <strong>{preview.role}</strong>.
+              <div className="muted" style={{ fontSize: ".85rem", marginTop: ".2rem" }}>
+                {preview.email}
+              </div>
             </div>
-            <div className="field">
-              <label htmlFor="password">Choose a password</label>
-              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {error && <p style={{ color: "#f87171" }}>{error}</p>}
-            <button type="submit" disabled={loading} style={{ width: "100%" }}>
-              {loading ? "Creating account…" : "Accept invite"}
-            </button>
-          </form>
-        </>
-      ) : (
-        !error && <p className="muted">Loading invite…</p>
-      )}
-      {error && !preview && <p style={{ color: "#f87171" }}>{error}</p>}
+
+            <form onSubmit={onSubmit}>
+              <div className="field">
+                <label htmlFor="username">Choose a username</label>
+                <input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  style={{ width: "100%" }}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="password">Choose a password</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  style={{ width: "100%" }}
+                  required
+                />
+              </div>
+
+              {error && <div className="alert-error">{error}</div>}
+
+              <button type="submit" disabled={loading} style={{ width: "100%" }}>
+                {loading ? "Creating account…" : "Accept invite"}
+              </button>
+            </form>
+          </>
+        ) : error ? (
+          <div className="alert-error">{error}</div>
+        ) : (
+          <div className="boot" style={{ minHeight: "auto", padding: "2rem 0" }}>
+            <div className="boot-spinner" />
+            <span className="muted">Loading invite…</span>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

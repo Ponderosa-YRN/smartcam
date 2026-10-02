@@ -3,7 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchFrameBlob } from "@/lib/api";
 
-export default function CameraFrame({ sourceId, name, health }: { sourceId: string; name: string; health: string }) {
+function healthTone(health: string): "ok" | "warn" | "danger" | undefined {
+  const h = (health || "").toLowerCase();
+  if (/ok|live|healthy|running|stream/.test(h)) return "ok";
+  if (/unknown|warm|start|init|idle/.test(h)) return "warn";
+  if (/error|fail|down|stall|dead|offline/.test(h)) return "danger";
+  return undefined;
+}
+
+export default function CameraFrame({
+  sourceId,
+  name,
+  health,
+}: {
+  sourceId: string;
+  name: string;
+  health: string;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -19,7 +35,7 @@ export default function CameraFrame({ sourceId, name, health }: { sourceId: stri
           return URL.createObjectURL(blob);
         });
       } catch {
-        // frame may be unavailable (camera stopped) — keep the last frame
+        // frame may be unavailable (camera stopped) - keep the last frame
       }
     }
 
@@ -39,12 +55,12 @@ export default function CameraFrame({ sourceId, name, health }: { sourceId: stri
     <div className="card">
       <div className="cam-head">
         <strong>{name}</strong>
-        <span className="muted">{health}</span>
+        <span className={"badge " + (healthTone(health) ?? "")}>{health || "unknown"}</span>
       </div>
       {url ? (
         <img src={url} alt={name} className="cam-frame" />
       ) : (
-        <div className="cam-frame placeholder">No frame</div>
+        <div className="cam-frame placeholder">No frame yet</div>
       )}
     </div>
   );

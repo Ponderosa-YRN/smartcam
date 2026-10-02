@@ -14,23 +14,9 @@ import {
 } from "@/lib/api";
 import CameraFrame from "@/components/CameraFrame";
 import LiveFeed from "@/components/LiveFeed";
+import { startOfToday, timeAgo } from "@/lib/format";
 
 const REFRESH_MS = 15000;
-
-function startOfToday(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime() / 1000;
-}
-
-function timeAgo(ts?: number): string {
-  if (!ts) return "";
-  const secs = Math.max(0, Math.floor(Date.now() / 1000 - ts));
-  if (secs < 60) return secs + "s ago";
-  if (secs < 3600) return Math.floor(secs / 60) + "m ago";
-  if (secs < 86400) return Math.floor(secs / 3600) + "h ago";
-  return Math.floor(secs / 86400) + "d ago";
-}
 
 async function settle<T>(p: Promise<T>, fallback: T, note: (msg: string) => void): Promise<T> {
   try {

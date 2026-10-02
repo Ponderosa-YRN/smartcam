@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listEvents, listSources, type EventItem } from "@/lib/api";
+import { timeAgo, fullTime } from "@/lib/format";
 import ClipPlayer from "@/components/ClipPlayer";
+import EventThumb from "@/components/EventThumb";
+import PageHead from "@/components/PageHead";
+import EmptyState from "@/components/EmptyState";
 
 const TYPES = ["detection", "loitering", "intrusion", "queue", "fall", "abandoned", "parking"];
+const PAGE = 50;
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -12,6 +17,8 @@ export default function EventsPage() {
   const [camera, setCamera] = useState("");
   const [etype, setEtype] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [limit, setLimit] = useState(PAGE);
 
   useEffect(() => {
     listSources()
@@ -19,43 +26,129 @@ export default function EventsPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
+    setLoading(true);
     const filters: { camera_id?: string; event_type?: string } = {};
     if (camera) filters.camera_id = camera;
     if (etype) filters.event_type = etype;
-    listEvents(100, filters).then(setEvents).catch((e) => setError(e.message));
-  }, [camera, etype]);
+    try {
+      setEvents(await listEvents(limit, filters));
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load events");
+    } finally {
+      setLoading(false);
+    }
+  }, [camera, etype, limit]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtering = camera !== "" || etype !== "";
 
   return (
     <main>
-      <h1>Events</h1>
-      <div className="row">
-        <select value={camera} onChange={(e) => setCamera(e.target.value)}>
+      <PageHead
+        title="Events"
+        sub={events.length + " event" + (events.length === 1 ? "" : "s") + (filtering ? " matching your filters" : " recorded")}
+        actions={
+          <button className="secondary" onClick={load} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+      />
+
+      <div className="row card">
+        <select value={camera} onChange={(e) => setCamera(e.target.value)} style={{ minWidth: 180 }}>
           <option value="">All cameras</option>
           {cameras.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
           ))}
         </select>
-        <select value={etype} onChange={(e) => setEtype(e.target.value)}>
+        <select value={etype} onChange={(e) => setEtype(e.target.value)} style={{ minWidth: 160 }}>
           <option value="">All types</option>
           {TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
+            <option key={t} value={t}>
+              {t}
+            </option>
           ))}
         </select>
+        {(camera || etype) && (
+          <button
+            className="secondary btn-sm"
+            onClick={() => {
+              setCamera("");
+              setEtype("");
+            }}
+          >
+            Clear filters
+          </button>
+        )}
       </div>
-      {error && <p style={{ color: "#f87171" }}>{error}</p>}
-      {events.length === 0 ? (
-        <p className="muted">No events.</p>
+
+      {error && <div className="alert-error">{error}</div>}
+
+      {loading && events.length === 0 ? (
+        <div className="card">
+          <div className="skeleton" style={{ height: "5rem" }} />
+        </div>
+      ) : events.length === 0 ? (
+        <EmptyState
+          title={filtering ? "No events match those filters" : "No events yet"}
+          hint={filtering ? "Try clearing the filters." : "Detections appear here once a camera is running."}
+        />
       ) : (
-        events.map((ev) => (
-          <div className="card" key={ev.id}>
-            <strong>{ev.event_type ?? "detection"}</strong>
-            <span className="muted"> · {ev.top_object ?? ""} · {ev.camera_name ?? ev.camera_id}</span>
-            {ev.start_ts ? <span className="muted"> · {new Date(ev.start_ts * 1000).toLocaleString()}</span> : null}
-            {ev.summary && <p>{ev.summary}</p>}
-            <ClipPlayer eventId={ev.id} />
+        <>
+          <div className="card">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th style={{ width: 110 }} />
+                  <th>Event</th>
+                  <th>Camera</th>
+                  <th>When</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((ev) => (
+                  <tr key={ev.id}>
+                    <td>
+                      <EventThumb eventId={ev.id} />
+                    </td>
+                    <td>
+                      <strong>{ev.event_type ?? "detection"}</strong>
+                      {ev.top_object ? <span className="muted"> · {ev.top_object}</span> : null}
+                      {ev.summary ? (
+                        <div className="muted" style={{ fontSize: ".84rem", marginTop: ".2rem" }}>
+                          {ev.summary}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="muted">{ev.camera_name ?? ev.camera_id}</td>
+                    <td className="muted" title={fullTime(ev.start_ts)}>
+                      {timeAgo(ev.start_ts)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <ClipPlayer eventId={ev.id} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ))
+
+          {events.length >= limit && (
+            <div className="row" style={{ justifyContent: "center" }}>
+              <button className="secondary" onClick={() => setLimit(limit + PAGE)}>
+                Show more
+              </button>
+            </div>
+          )}
+        </>
       )}
     </main>
   );

@@ -246,6 +246,15 @@ export async function fetchFrameBlob(sourceId: string): Promise<Blob> {
   return res.blob();
 }
 
+export async function fetchThumbBlob(eventId: number): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(apiUrl("/api/thumbs/" + eventId), { headers });
+  if (!res.ok) throw new Error(res.status + ": " + res.statusText);
+  return res.blob();
+}
+
 export async function fetchClipBlob(eventId: number): Promise<Blob> {
   const token = getToken();
   const headers: Record<string, string> = {};
@@ -332,6 +341,14 @@ export async function ackAlert(id: number): Promise<void> {
 
 export async function resolveAlert(id: number): Promise<void> {
   await request<{ ok: boolean }>("/api/resolve/" + id, { method: "POST" });
+}
+
+export async function escalateAlert(id: number): Promise<void> {
+  await request<{ ok: boolean }>("/api/escalate/" + id, { method: "POST" });
+}
+
+export async function assignAlert(id: number, user: string): Promise<void> {
+  await request<{ ok: boolean }>("/api/assign/" + id, { method: "POST", body: JSON.stringify({ user }) });
 }
 
 // -- search / analytics ------------------------------------------------

@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getToken, getWebRTCConfig } from "@/lib/api";
+import { wsBase } from "@/lib/ws";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://agay.tech").replace(/\/+$/, "");
-
-export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
+export default function WebRTCLiveFeed({ sourceId, name }: { sourceId: string; name?: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -21,9 +21,16 @@ export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
       let iceServers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
         const cfg = await getWebRTCConfig();
-        if (!cfg.enabled) { setFailed(true); return; }
+        if (!cfg.enabled) {
+          setFailed(true);
+          return;
+        }
         if (cfg.ice_servers && cfg.ice_servers.length > 0) {
-          iceServers = cfg.ice_servers.map((s) => ({ urls: s.urls, username: s.username, credential: s.credential }));
+          iceServers = cfg.ice_servers.map((s) => ({
+            urls: s.urls,
+            username: s.username,
+            credential: s.credential,
+          }));
         }
       } catch {
         // fall back to the default STUN server
@@ -31,22 +38,27 @@ export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
       if (cancelled) return;
 
       const token = getToken() ?? "";
-      const wsUrl = API_URL.replace(/^http/, "ws") + "/ws/webrtc/" + sourceId + "?token=" + encodeURIComponent(token);
+      const wsUrl = wsBase() + "/ws/webrtc/" + sourceId + "?token=" + encodeURIComponent(token);
 
       pc = new RTCPeerConnection({ iceServers });
       ws = new WebSocket(wsUrl);
 
       pc.ontrack = (ev) => {
-        if (ev.streams && ev.streams[0]) video.srcObject = ev.streams[0];
+        if (ev.streams && ev.streams[0]) {
+          video.srcObject = ev.streams[0];
+          setReady(true);
+        }
       };
       pc.onicecandidate = (ev) => {
         if (ev.candidate && ws) {
-          ws.send(JSON.stringify({
-            type: "candidate",
-            candidate: ev.candidate.candidate,
-            sdpMid: ev.candidate.sdpMid,
-            sdpMLineIndex: ev.candidate.sdpMLineIndex,
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "candidate",
+              candidate: ev.candidate.candidate,
+              sdpMid: ev.candidate.sdpMid,
+              sdpMLineIndex: ev.candidate.sdpMLineIndex,
+            })
+          );
         }
       };
       ws.onopen = async () => {
@@ -60,7 +72,11 @@ export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
           if (msg.type === "answer") {
             await pc!.setRemoteDescription({ type: "answer", sdp: msg.sdp });
           } else if (msg.type === "candidate") {
-            await pc!.addIceCandidate({ candidate: msg.candidate, sdpMid: msg.sdpMid, sdpMLineIndex: msg.sdpMLineIndex });
+            await pc!.addIceCandidate({
+              candidate: msg.candidate,
+              sdpMid: msg.sdpMid,
+              sdpMLineIndex: msg.sdpMLineIndex,
+            });
           } else if (msg.type === "error") {
             setFailed(true);
           }
@@ -73,14 +89,39 @@ export default function WebRTCLiveFeed({ sourceId }: { sourceId: string }) {
 
     return () => {
       cancelled = true;
-      try { ws?.close(); } catch { /* ignore */ }
-      try { pc?.close(); } catch { /* ignore */ }
+      try {
+        ws?.close();
+      } catch {
+        // ignore
+      }
+      try {
+        pc?.close();
+      } catch {
+        // ignore
+      }
     };
   }, [sourceId]);
 
-  if (failed) {
-    return <div className="card" style={{ background: "#000", color: "#999", padding: "1rem" }}>WebRTC unavailable.</div>;
-  }
-
-  return <video ref={videoRef} autoPlay playsInline muted style={{ width: "100%", background: "#000", borderRadius: 8 }} />;
+  return (
+    <div className="card">
+      <div className="cam-head">
+        <strong>{name ?? sourceId}</strong>
+        <span className={"badge " + (failed ? "danger" : ready ? "ok" : "warn")}>
+          {failed ? "Unavailable" : ready ? "Realtime" : "Connecting"}
+        </span>
+      </div>
+      {failed ? (
+        <div className="cam-frame placeholder">WebRTC unavailable for this camera.</div>
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="cam-frame"
+          style={{ objectFit: "contain" }}
+        />
+      )}
+    </div>
+  );
 }

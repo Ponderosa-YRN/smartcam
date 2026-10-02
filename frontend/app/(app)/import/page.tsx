@@ -13,10 +13,13 @@ import {
   type SourceStatus,
   type EventItem,
 } from "@/lib/api";
+import PageHead from "@/components/PageHead";
+import EmptyState from "@/components/EmptyState";
+import Badge from "@/components/Badge";
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [fast, setFast] = useState(false);
+  const [fast, setFast] = useState(true);
   const [busy, setBusy] = useState(false);
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [status, setStatus] = useState<SourceStatus | null>(null);
@@ -97,66 +100,132 @@ export default function ImportPage() {
     });
   }
 
+  const finished = status?.status === "stopped";
+
   return (
     <main>
-      <h1>Import video for assessment</h1>
-      <p className="muted">Upload a video and SmartCam will analyze it once (fast, single-pass) and report the events it finds.</p>
+      <PageHead
+        title="Import video"
+        sub="Upload a recording and SmartCam will analyse it once and report what it found — useful for assessing a site before installing."
+      />
 
       {!sourceId && (
-        <form onSubmit={onImport} className="row">
-          <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <button type="submit" disabled={!file || busy}>{busy ? "Importing…" : "Import & analyze"}</button>
+        <form onSubmit={onImport} className="card">
+          <div className="field">
+            <label htmlFor="video">Video file</label>
+            <input
+              id="video"
+              type="file"
+              accept="video/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          <label className="row" style={{ gap: ".5rem", marginBottom: "1rem", color: "var(--text)" }}>
+            <input type="checkbox" checked={fast} onChange={(e) => setFast(e.target.checked)} />
+            <span>
+              Fast processing
+              <span className="muted" style={{ fontSize: ".85rem" }}> — analyse as quickly as possible instead of real time</span>
+            </span>
+          </label>
+
+          <button type="submit" disabled={!file || busy}>
+            {busy ? "Uploading…" : "Import and analyse"}
+          </button>
         </form>
       )}
 
-      {!sourceId && (
-        <label className="row" style={{ gap: "0.5rem" }}>
-          <input type="checkbox" checked={fast} onChange={(e) => setFast(e.target.checked)} />
-          <span>⚡ Fast processing (skip real-time playback)</span>
-        </label>
-      )}
+      {error && <div className="alert-error">{error}</div>}
 
-      {error && <p style={{ color: "#f87171" }}>{error}</p>}
+      {sourceId && status && (
+        <>
+          <div className="card">
+            <div className="cam-head">
+              <strong>Assessment</strong>
+              <span className="spread">
+                <Badge tone={finished ? "ok" : status.status === "error" ? "danger" : "warn"}>
+                  {status.status}
+                </Badge>
+                <button className="secondary btn-sm" onClick={onRemove}>
+                  Remove
+                </button>
+              </span>
+            </div>
 
-      {status && (
-        <div className="card">
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <h2 style={{ margin: 0 }}>Assessment</h2>
-            <button className="secondary" onClick={onRemove}>Remove</button>
-          </div>
-          {frameUrl ? (
-            <img src={frameUrl} alt="Live assessment" className="clip" />
-          ) : (
-            <p className="muted">Warming up the model — the live view will appear here…</p>
-          )}
-          <div className="metrics">
-            <div className="metric"><div className="big">{status.status}</div><div className="muted">Status</div></div>
-            <div className="metric"><div className="big">{status.frames}</div><div className="muted">Frames</div></div>
-            <div className="metric"><div className="big">{(status.fps ?? 0).toFixed(1)}</div><div className="muted">FPS</div></div>
-            <div className="metric"><div className="big">{status.active_objects?.length ?? 0}</div><div className="muted">Objects now</div></div>
-          </div>
-          {status.active_objects && status.active_objects.length > 0 && (
-            <p><span className="muted">Active:</span> {status.active_objects.join(", ")}</p>
-          )}
-        </div>
-      )}
+            {frameUrl ? (
+              <img src={frameUrl} alt="Assessment preview" className="cam-frame" />
+            ) : (
+              <div className="cam-frame placeholder">Warming up the model…</div>
+            )}
 
-      {status?.status === "stopped" && (
-        <div className="card">
-          <h2>✅ Assessment complete — {events.length} event(s)</h2>
-          {events.length === 0 ? (
-            <p className="muted">No events detected.</p>
-          ) : (
-            events.map((ev) => (
-              <div className="card" key={ev.id}>
-                <strong>{ev.event_type ?? "detection"}</strong>
-                <span className="muted"> · {(ev.objects ?? []).join(", ")}</span>
-                {ev.summary && <p>{ev.summary}</p>}
+            <div className="metrics" style={{ marginTop: "1rem", marginBottom: 0 }}>
+              <div className="metric">
+                <div className="label">Frames</div>
+                <div className="big">{status.frames}</div>
               </div>
-            ))
+              <div className="metric">
+                <div className="label">FPS</div>
+                <div className="big">{(status.fps ?? 0).toFixed(1)}</div>
+              </div>
+              <div className="metric">
+                <div className="label">Objects now</div>
+                <div className="big">{status.active_objects?.length ?? 0}</div>
+              </div>
+              <div className="metric">
+                <div className="label">Events found</div>
+                <div className="big">{events.length}</div>
+              </div>
+            </div>
+
+            {status.active_objects && status.active_objects.length > 0 && (
+              <p className="muted" style={{ marginBottom: 0, fontSize: ".88rem" }}>
+                Currently seeing: {status.active_objects.join(", ")}
+              </p>
+            )}
+            {status.error ? <div className="alert-error" style={{ marginTop: "1rem" }}>{status.error}</div> : null}
+          </div>
+
+          {finished && (
+            <>
+              <h2>Results — {events.length} event{events.length === 1 ? "" : "s"}</h2>
+              {events.length === 0 ? (
+                <EmptyState
+                  title="Nothing detected in this clip"
+                  hint="Try a longer recording, or one with clearer movement."
+                />
+              ) : (
+                <div className="card">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Event</th>
+                        <th>Objects</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((ev) => (
+                        <tr key={ev.id}>
+                          <td>
+                            <strong>{ev.event_type ?? "detection"}</strong>
+                            {ev.summary ? (
+                              <div className="muted" style={{ fontSize: ".85rem", marginTop: ".2rem" }}>
+                                {ev.summary}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td className="muted">{(ev.objects ?? []).join(", ") || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="muted" style={{ fontSize: ".85rem" }}>
+                Clips and thumbnails for these events are in the Events tab.
+              </p>
+            </>
           )}
-          <p className="muted">Clips and thumbnails are available in the Events tab.</p>
-        </div>
+        </>
       )}
     </main>
   );

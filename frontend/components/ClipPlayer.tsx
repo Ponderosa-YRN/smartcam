@@ -33,20 +33,25 @@ export default function ClipPlayer({ eventId }: { eventId: number }) {
 
   if (url) {
     return (
-      <div>
+      <div style={{ width: "100%" }}>
         <video src={url} controls autoPlay className="clip" />
-        <br />
-        <button className="secondary" onClick={close}>Close</button>
+        <button className="secondary btn-sm" onClick={close} style={{ marginTop: ".4rem" }}>
+          Close clip
+        </button>
       </div>
     );
   }
 
   return (
-    <div>
-      <button className="secondary" onClick={load} disabled={loading}>
+    <>
+      <button className="secondary btn-sm" onClick={load} disabled={loading}>
         {loading ? "Loading…" : "▶ Play clip"}
       </button>
-      {error && <span className="muted"> · {error}</span>}
-    </div>
+      {error && (
+        <span className="muted" style={{ fontSize: ".8rem" }}>
+          {error}
+        </span>
+      )}
+    </>
   );
 }
