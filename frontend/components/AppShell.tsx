@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/lib/api";
+import Icon, { type IconName } from "@/components/Icon";
 
-type Item = { href: string; label: string; ico: string };
+type Item = { href: string; label: string; icon: IconName };
 type Group = { title: string; items: Item[] };
 
 /** The frame every signed-in page sits in: sidebar, topbar, mobile tab bar. */
@@ -31,39 +32,39 @@ export default function AppShell({
     {
       title: "Monitor",
       items: [
-        { href: "/dashboard", label: "Dashboard", ico: "▦" },
-        { href: "/live", label: "Live view", ico: "◉" },
-        { href: "/alerts", label: "Alerts", ico: "⚠" },
+        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+        { href: "/live", label: "Live view", icon: "live" },
+        { href: "/alerts", label: "Alerts", icon: "alerts" },
       ],
     },
     {
       title: "Investigate",
       items: [
-        { href: "/events", label: "Events", ico: "≡" },
-        { href: "/search", label: "Search", ico: "⌕" },
-        { href: "/track", label: "Track", ico: "◎" },
-        { href: "/plates", label: "Plates", ico: "▭" },
-        { href: "/faces", label: "Faces", ico: "☺" },
+        { href: "/events", label: "Events", icon: "events" },
+        { href: "/search", label: "Search", icon: "search" },
+        { href: "/track", label: "Track", icon: "track" },
+        { href: "/plates", label: "Plates", icon: "plates" },
+        { href: "/faces", label: "Faces", icon: "faces" },
       ],
     },
-    { title: "Insights", items: [{ href: "/analytics", label: "Analytics", ico: "◔" }] },
+    { title: "Insights", items: [{ href: "/analytics", label: "Analytics", icon: "analytics" }] },
   ];
 
   if (role === "admin" || role === "manager") {
     const manage: Item[] = [
-      { href: "/import", label: "Import", ico: "↑" },
-      { href: "/settings", label: "Settings", ico: "⚙" },
+      { href: "/import", label: "Import", icon: "import" },
+      { href: "/settings", label: "Settings", icon: "settings" },
     ];
-    if (role === "admin") manage.push({ href: "/admin", label: "Admin", ico: "★" });
+    if (role === "admin") manage.push({ href: "/admin", label: "Admin", icon: "admin" });
     groups.push({ title: "Manage", items: manage });
   }
 
   const tabs: Item[] = [
-    { href: "/dashboard", label: "Home", ico: "▦" },
-    { href: "/live", label: "Live", ico: "◉" },
-    { href: "/alerts", label: "Alerts", ico: "⚠" },
-    { href: "/events", label: "Events", ico: "≡" },
-    { href: "/analytics", label: "Stats", ico: "◔" },
+    { href: "/dashboard", label: "Home", icon: "dashboard" },
+    { href: "/live", label: "Live", icon: "live" },
+    { href: "/alerts", label: "Alerts", icon: "alerts" },
+    { href: "/events", label: "Events", icon: "events" },
+    { href: "/analytics", label: "Stats", icon: "analytics" },
   ];
 
   const current = groups.flatMap((g) => g.items).find((i) => i.href === pathname);
@@ -90,7 +91,9 @@ export default function AppShell({
                   href={it.href}
                   className={"nav-item" + (pathname === it.href ? " active" : "")}
                 >
-                  <span className="ico">{it.ico}</span>
+                  <span className="ico">
+                    <Icon name={it.icon} />
+                  </span>
                   <span>{it.label}</span>
                 </Link>
               ))}
@@ -110,11 +113,12 @@ export default function AppShell({
           <button className="icon-btn" onClick={() => setOpen((v) => !v)} aria-label="Toggle navigation">
             ☰
           </button>
+          {/* Desktop shows the active item in the sidebar, so repeating it here would
+              just duplicate the page heading. On mobile the sidebar is hidden. */}
           <div className="topbar-title">{current ? current.label : "SmartCam"}</div>
           <div className="topbar-right">
-            <span className="who muted">
-              {username} · {role}
-            </span>
+            <span className="who muted">{username}</span>
+            {role && role !== username ? <span className="badge">{role}</span> : null}
             <button className="secondary btn-sm" onClick={onLogout}>
               Sign out
             </button>
@@ -126,7 +130,9 @@ export default function AppShell({
         <nav className="tabbar">
           {tabs.map((t) => (
             <Link key={t.href} href={t.href} className={pathname === t.href ? "active" : ""}>
-              <span className="ico">{t.ico}</span>
+              <span className="ico">
+                <Icon name={t.icon} size={20} />
+              </span>
               {t.label}
             </Link>
           ))}

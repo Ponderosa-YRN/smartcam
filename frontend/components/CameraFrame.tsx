@@ -5,9 +5,9 @@ import { fetchFrameBlob } from "@/lib/api";
 
 function healthTone(health: string): "ok" | "warn" | "danger" | undefined {
   const h = (health || "").toLowerCase();
-  if (/ok|live|healthy|running|stream/.test(h)) return "ok";
-  if (/unknown|warm|start|init|idle/.test(h)) return "warn";
-  if (/error|fail|down|stall|dead|offline/.test(h)) return "danger";
+  if (/error|fail|down|stall|dead|offline|disconnect/.test(h)) return "danger";
+  if (/ok|live|healthy|running|active/.test(h)) return "ok";
+  if (/stop|unknown|warm|start|init|idle|wait|pending/.test(h)) return "warn";
   return undefined;
 }
 
