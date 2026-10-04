@@ -28,7 +28,6 @@ interface SourceRow {
 const TABS = [
   { id: "cameras", label: "Cameras" },
   ...SECTIONS.map((s) => ({ id: s.id, label: s.label })),
-  { id: "advanced", label: "Advanced" },
 ];
 
 /** Number input that keeps what you type locally, so decimals are typeable. */
@@ -137,45 +136,6 @@ function Control({
       placeholder={field.kind === "secret" ? "•••• (leave to keep)" : undefined}
       onChange={(e) => onSet(field.path, e.target.value)}
     />
-  );
-}
-
-/** Raw JSON escape hatch. Keeps its own text so half-typed JSON is not snatched away. */
-function AdvancedEditor({ cfg, onChange }: { cfg: Cfg; onChange: (c: Cfg) => void }) {
-  const [text, setText] = useState(() => JSON.stringify(cfg, null, 2));
-  const [problem, setProblem] = useState("");
-
-  return (
-    <>
-      <div className="card" style={{ borderColor: "rgba(245,158,11,.35)" }}>
-        <strong style={{ color: "#fcd34d" }}>For technical users</strong>
-        <p className="muted" style={{ fontSize: ".88rem", marginBottom: 0 }}>
-          This is the raw configuration file. Everything the other tabs set lives here too —
-          break the JSON and you can break the app, so prefer the friendly screens.
-        </p>
-      </div>
-
-      {problem && <div className="alert-error">{problem}</div>}
-
-      <div className="card">
-        <textarea
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            try {
-              onChange(JSON.parse(e.target.value) as Cfg);
-              setProblem("");
-            } catch {
-              setProblem("That is not valid JSON yet. Your text is kept, but nothing is applied.");
-            }
-          }}
-          rows={26}
-          spellCheck={false}
-          className="mono"
-          style={{ fontSize: ".85rem", lineHeight: 1.5 }}
-        />
-      </div>
-    </>
   );
 }
 
@@ -457,9 +417,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {tab === "advanced" && (
-        <AdvancedEditor key={loadKey} cfg={cfg} onChange={(next) => setCfg(next)} />
-      )}
     </main>
   );
 }
