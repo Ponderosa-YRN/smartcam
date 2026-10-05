@@ -351,6 +351,47 @@ input[type="file"] {
 .chip:hover { background: var(--surface-hover); color: var(--text); }
 .spread { display: flex; align-items: center; gap: .6rem; }
 
+/* ---------- Vera, the duty officer ---------- */
+.copilot {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 400px; max-width: 100vw;
+  background: var(--surface-2);
+  border-left: 1px solid var(--border);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, .4);
+  display: flex; flex-direction: column;
+  z-index: 60;
+  transform: translateX(100%);
+  transition: transform .2s ease;
+}
+.copilot.open { transform: translateX(0); }
+.copilot-head {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .7rem 1rem; border-bottom: 1px solid var(--border);
+}
+.copilot-body {
+  flex: 1; overflow-y: auto; padding: 1rem;
+  display: flex; flex-direction: column; gap: .9rem;
+}
+.copilot-foot {
+  display: flex; gap: .5rem; padding: .7rem;
+  border-top: 1px solid var(--border);
+}
+.copilot-foot input { flex: 1; min-width: 0; }
+.turn .who {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-dim); margin-bottom: .2rem;
+}
+.turn .bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: .6rem .8rem; font-size: .9rem;
+  white-space: pre-wrap; word-break: break-word;
+}
+.turn.you .bubble { background: var(--brand-soft); border-color: transparent; }
+
+@media (max-width: 900px) { .copilot { width: 100vw; } }
+
 /* ---------- settings rows ---------- */
 .setting {
   display: flex; align-items: flex-start; gap: 1rem;

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/lib/api";
 import Icon, { type IconName } from "@/components/Icon";
+import Copilot from "@/components/Copilot";
 
 type Item = { href: string; label: string; icon: IconName };
 type Group = { title: string; items: Item[] };
@@ -22,6 +23,7 @@ export default function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [copilot, setCopilot] = useState(false);
 
   // Close the drawer whenever we navigate.
   useEffect(() => {
@@ -117,6 +119,9 @@ export default function AppShell({
               just duplicate the page heading. On mobile the sidebar is hidden. */}
           <div className="topbar-title">{current ? current.label : "SmartCam"}</div>
           <div className="topbar-right">
+            <button className="secondary btn-sm" onClick={() => setCopilot(true)}>
+              Ask Vera
+            </button>
             <span className="who muted">{username}</span>
             {role && role !== username ? <span className="badge">{role}</span> : null}
             <button className="secondary btn-sm" onClick={onLogout}>
@@ -138,6 +143,8 @@ export default function AppShell({
           ))}
         </nav>
       </div>
+
+      <Copilot open={copilot} onClose={() => setCopilot(false)} />
     </div>
   );
 }
