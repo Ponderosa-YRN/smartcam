@@ -9,7 +9,9 @@ import {
   stopSource,
   type CameraSource,
 } from "@/lib/api";
-import { SECTIONS, getPath, setPath, type Field } from "@/lib/settings-schema";
+import { SECTIONS, setPath } from "@/lib/settings-schema";
+import Control from "@/components/SettingsFields";
+import ZoneEditor, { type ZoneRow } from "@/components/ZoneEditor";
 import PageHead from "@/components/PageHead";
 import EmptyState from "@/components/EmptyState";
 import Badge from "@/components/Badge";
@@ -27,117 +29,9 @@ interface SourceRow {
 
 const TABS = [
   { id: "cameras", label: "Cameras" },
+  { id: "zones", label: "Zones" },
   ...SECTIONS.map((s) => ({ id: s.id, label: s.label })),
 ];
-
-/** Number input that keeps what you type locally, so decimals are typeable. */
-function NumberControl({
-  initial,
-  field,
-  onChange,
-}: {
-  initial: unknown;
-  field: Field;
-  onChange: (v: number) => void;
-}) {
-  const [text, setText] = useState(initial === undefined || initial === null ? "" : String(initial));
-  return (
-    <input
-      type="number"
-      value={text}
-      step={field.step}
-      min={field.min}
-      max={field.max}
-      onChange={(e) => {
-        setText(e.target.value);
-        const n = Number(e.target.value);
-        if (e.target.value !== "" && !Number.isNaN(n)) onChange(n);
-      }}
-    />
-  );
-}
-
-/** Comma-separated list editor. Leaves empty entries out of the saved value. */
-function TagsControl({ initial, onChange }: { initial: unknown; onChange: (v: string[]) => void }) {
-  const list = Array.isArray(initial) ? initial.map(String) : [];
-  const [text, setText] = useState(list.join(", "));
-  return (
-    <input
-      value={text}
-      placeholder="comma separated"
-      onChange={(e) => {
-        setText(e.target.value);
-        onChange(
-          e.target.value
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        );
-      }}
-    />
-  );
-}
-
-function Control({
-  field,
-  cfg,
-  onSet,
-}: {
-  field: Field;
-  cfg: Cfg;
-  onSet: (path: string, value: unknown) => void;
-}) {
-  const value = getPath(cfg, field.path);
-
-  if (field.kind === "bool") {
-    const on = Boolean(value);
-    return (
-      <label className="switch">
-        <input
-          type="checkbox"
-          checked={on}
-          onChange={(e) => onSet(field.path, e.target.checked)}
-        />
-        <span className="state">{on ? "On" : "Off"}</span>
-      </label>
-    );
-  }
-
-  if (field.kind === "select") {
-    return (
-      <select value={String(value ?? "")} onChange={(e) => onSet(field.path, e.target.value)}>
-        {(field.options ?? []).map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  if (field.kind === "number") {
-    return (
-      <NumberControl
-        initial={value}
-        field={field}
-        onChange={(n) => onSet(field.path, n)}
-      />
-    );
-  }
-
-  if (field.kind === "tags") {
-    return <TagsControl initial={value} onChange={(v) => onSet(field.path, v)} />;
-  }
-
-  return (
-    <input
-      type={field.kind === "secret" ? "password" : "text"}
-      value={value === undefined || value === null ? "" : String(value)}
-      placeholder={field.kind === "secret" ? "•••• (leave to keep)" : undefined}
-      onChange={(e) => onSet(field.path, e.target.value)}
-    />
-  );
-}
 
 export default function SettingsPage() {
   const [cfg, setCfg] = useState<Cfg | null>(null);
@@ -222,6 +116,7 @@ export default function SettingsPage() {
   }
 
   const sources = (Array.isArray(cfg.sources) ? cfg.sources : []) as SourceRow[];
+  const zones = (Array.isArray(cfg.zones) ? cfg.zones : []) as ZoneRow[];
 
   const updateSource = (i: number, patch: Partial<SourceRow>) =>
     set(
@@ -247,6 +142,36 @@ export default function SettingsPage() {
       "sources",
       sources.filter((_, idx) => idx !== i)
     );
+
+  const updateZone = (i: number, patch: Partial<ZoneRow>) =>
+    set(
+      "zones",
+      zones.map((z, idx) => (idx === i ? { ...z, ...patch } : z))
+    );
+
+  const removeZone = (i: number) =>
+    set(
+      "zones",
+      zones.filter((_, idx) => idx !== i)
+    );
+
+  const addZone = () =>
+    set("zones", [
+      ...zones,
+      {
+        id: "zone_" + Date.now(),
+        name: "Zone " + (zones.length + 1),
+        source_id: "",
+        points: [],
+        classes: ["person"],
+        max_occupancy: 0,
+        loiter_sec: 0,
+        restricted: false,
+        allowed_window: "",
+        parking: false,
+        capacity: 0,
+      },
+    ]);
 
   const section = SECTIONS.find((s) => s.id === tab);
 
@@ -386,6 +311,34 @@ export default function SettingsPage() {
         </>
       )}
 
+      {tab === "zones" && (
+        <>
+          <p className="muted" style={{ marginTop: 0 }}>
+            A zone is part of a camera&apos;s view with its own rules — somewhere nobody should be
+            after hours, a queue that should not grow, a car park with a capacity. Click on the
+            picture to draw the corners, then set the rules underneath.
+          </p>
+
+          {zones.length === 0 ? (
+            <EmptyState title="No zones yet" hint="Add one below, then click the picture to draw it." />
+          ) : (
+            zones.map((z, i) => (
+              <ZoneEditor
+                key={z.id + "-" + i}
+                zone={z}
+                cameras={live}
+                onChange={(patch) => updateZone(i, patch)}
+                onRemove={() => removeZone(i)}
+              />
+            ))
+          )}
+
+          <button className="secondary" onClick={addZone}>
+            + Add zone
+          </button>
+        </>
+      )}
+
       {section && (
         <div key={loadKey}>
           {section.blurb ? (
@@ -416,7 +369,6 @@ export default function SettingsPage() {
           ))}
         </div>
       )}
-
     </main>
   );
 }

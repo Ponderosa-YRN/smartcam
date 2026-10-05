@@ -265,6 +265,41 @@ export const SECTIONS: Section[] = [
   },
 ];
 
+/**
+ * Zone policy fields. Geometry is deliberately absent: the polygon is drawn, not typed,
+ * and an accidental geometry edit would invalidate every event raised against the old
+ * shape. Same rule the farm project enforces.
+ */
+export const ZONE_FIELDS: Field[] = [
+  { path: "name", label: "Zone name", kind: "text" },
+  { path: "classes", label: "Objects that count", kind: "tags", help: "Empty means person only" },
+  {
+    path: "loiter_sec",
+    label: "Loitering after (seconds)",
+    kind: "number",
+    min: 0,
+    step: 1,
+    help: "Alert if someone stays this long. 0 = off",
+  },
+  {
+    path: "max_occupancy",
+    label: "Queue alert at",
+    kind: "number",
+    min: 0,
+    step: 1,
+    help: "People inside the zone. 0 = off",
+  },
+  { path: "restricted", label: "Restricted area", kind: "bool", help: "Alert on entry outside the allowed hours" },
+  {
+    path: "allowed_window",
+    label: "Allowed between",
+    kind: "text",
+    help: "HH:MM-HH:MM, e.g. 06:00-22:00. Empty = always allowed",
+  },
+  { path: "parking", label: "Parking area", kind: "bool", help: "Count vehicles against a capacity" },
+  { path: "capacity", label: "Parking capacity", kind: "number", min: 0, step: 1, help: "0 = off" },
+];
+
 export function getPath(obj: unknown, path: string): unknown {
   return path.split(".").reduce<unknown>((acc, key) => {
     if (acc && typeof acc === "object") return (acc as Record<string, unknown>)[key];
