@@ -271,19 +271,26 @@ export interface CopilotResult {
 export async function ask(question: string, token: string): Promise<CopilotResult> {
   // Provider settings come from the existing Settings > Recognition screen, so there is
   // no new configuration surface and no container environment change.
-  let baseUrl = "https://api.openai.com/v1";
-  let apiKey = "";
-  let model = "gpt-4o-mini";
-  let cfg: Json;
-  try {
-    cfg = (await apiGet("/api/config", token)) as Json;
-  } catch {
-    return { error: "Your sign-in is no longer valid. Sign in again and retry." };
+  // The co-pilot's own key lives on the web tier (see SMART_CAM-web env), so it does not
+  // depend on who is signed in. The SmartCam config is only a fallback, and only
+  // admins/managers can read it - a viewer simply gets the "no key" message.
+  let baseUrl = process.env.COPILOT_BASE_URL || "https://api.openai.com/v1";
+  let apiKey = process.env.COPILOT_API_KEY || "";
+  let model = process.env.COPILOT_MODEL || "gpt-4o-mini";
+
+  if (!apiKey) {
+    try {
+      const cfg = (await apiGet("/api/config", token)) as Json;
+      const vlm = (cfg.vlm ?? {}) as Json;
+      if (!process.env.COPILOT_BASE_URL && typeof vlm.base_url === "string" && vlm.base_url) {
+        baseUrl = vlm.base_url.replace(/\/+$/, "");
+      }
+      if (typeof vlm.api_key === "string") apiKey = vlm.api_key;
+      if (!process.env.COPILOT_MODEL && typeof vlm.model === "string" && vlm.model) model = vlm.model;
+    } catch {
+      // not permitted to read the config; fall through to the no-key message below
+    }
   }
-  const vlm = (cfg.vlm ?? {}) as Json;
-  if (typeof vlm.base_url === "string" && vlm.base_url) baseUrl = vlm.base_url.replace(/\/+$/, "");
-  if (typeof vlm.api_key === "string") apiKey = vlm.api_key;
-  if (typeof vlm.model === "string" && vlm.model) model = vlm.model;
 
   if (!apiKey) {
     return {

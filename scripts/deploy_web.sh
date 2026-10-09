@@ -18,7 +18,16 @@ docker build --build-arg GIT_SHA="$(git rev-parse --short HEAD)" -t smartcam-web
 
 echo "==> restarting dashboard container"
 docker rm -f smartcam-web >/dev/null 2>&1 || true
-docker run -d --name smartcam-web --restart unless-stopped -p 127.0.0.1:3000:3000 smartcam-web
+
+# Secrets for the co-pilot etc. live in a host file, never in the repo.
+ENV_ARGS=()
+if [ -f /root/smartcam-web.env ]; then
+  ENV_ARGS=(--env-file /root/smartcam-web.env)
+  echo "    using /root/smartcam-web.env"
+fi
+
+docker run -d --name smartcam-web --restart unless-stopped "${ENV_ARGS[@]}" \
+  -p 127.0.0.1:3000:3000 smartcam-web
 
 echo "==> waiting for the dashboard to answer"
 for _ in $(seq 1 30); do
