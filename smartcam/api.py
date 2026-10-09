@@ -80,6 +80,25 @@ _PUBLIC_PATHS = {
     "/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc",
 }
 
+# Login throttling. In-memory and per-process, which is enough for one API container.
+# ponytail: in-memory throttle, move it into the event store if the API is scaled out.
+_LOGIN_FAILS: dict[str, list[float]] = {}
+_LOGIN_MAX_FAILS = 8
+_LOGIN_WINDOW_SEC = 300.0
+
+
+def _login_key(request: Request, username: str) -> str:
+    host = request.client.host if request.client else "?"
+    return host + "|" + username.lower()
+
+
+def _login_blocked(key: str) -> bool:
+    now = time.time()
+    hits = [t for t in _LOGIN_FAILS.get(key, []) if now - t < _LOGIN_WINDOW_SEC]
+    _LOGIN_FAILS[key] = hits
+    return len(hits) >= _LOGIN_MAX_FAILS
+
+
 _token_secret = ""
 
 
@@ -98,6 +117,31 @@ def _require_role(request: Request, *roles: str) -> None:
 
 def _req_tenant(request: Request) -> int | None:
     return getattr(request.state, "user", {}).get("tenant_id")
+
+
+def _event_for_tenant(request: Request, event_id: int) -> dict | None:
+    """Fetch an event only if it belongs to the caller's tenant.
+
+    The media endpoints used to accept any event id, so one hotel could read another
+    hotel's clips and thumbnails by counting upwards from 1.
+    """
+    ev = _mgr().store.get_event(event_id)
+    if ev is None or ev.get("tenant_id") != _req_tenant(request):
+        return None
+    return ev
+
+
+def _can_see_source(request: Request, source_id: str) -> bool:
+    """True when the caller may watch or control this camera.
+
+    A camera with no tenant_id is shared (a demo feed); otherwise it belongs to exactly
+    one tenant.
+    """
+    tenant = _req_tenant(request)
+    for s in _mgr().cfg.sources:
+        if s.id == source_id:
+            return s.tenant_id is None or s.tenant_id == tenant
+    return False
 
 
 def _slugify(text: str) -> str:
@@ -178,12 +222,20 @@ def register(data: dict):
 
 
 @app.post("/auth/login")
-def login(data: dict):
+def login(request: Request, data: dict):
     username = str(data.get("username", ""))
     password = str(data.get("password", ""))
+    key = _login_key(request, username)
+    if _login_blocked(key):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed sign-in attempts. Wait a few minutes and try again.",
+        )
     user = authenticate_user(_mgr().store, username, password)
     if user is None:
+        _LOGIN_FAILS.setdefault(key, []).append(time.time())
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    _LOGIN_FAILS.pop(key, None)
     secret = _get_secret()
     access = create_token({"sub": user["id"], "username": user["username"], "role": user["role"], "tenant_id": user.get("tenant_id"), "typ": "access"}, secret)
     refresh = create_token({"sub": user["id"], "typ": "refresh"}, secret)
@@ -563,10 +615,13 @@ def health():
 
 
 @app.get("/api/sources")
-def sources():
+def sources(request: Request):
     m = _mgr()
+    tenant = _req_tenant(request)
     out = []
     for s in m.cfg.sources:
+        if s.tenant_id is not None and s.tenant_id != tenant:
+            continue
         p = m.pipelines.get(s.id)
         out.append({
             "id": s.id, "name": s.name, "uri": s.uri, "enabled": s.enabled,
@@ -578,50 +633,50 @@ def sources():
 
 
 @app.post("/api/start/{source_id}")
-def start(source_id: str):
+def start(request: Request, source_id: str):
     m = _mgr()
-    if source_id not in m.pipelines:
+    if not _can_see_source(request, source_id) or source_id not in m.pipelines:
         raise HTTPException(status_code=404, detail="unknown source")
     m.start(source_id)
     return {"ok": True}
 
 
 @app.post("/api/stop/{source_id}")
-def stop(source_id: str):
+def stop(request: Request, source_id: str):
     m = _mgr()
-    if source_id not in m.pipelines:
+    if not _can_see_source(request, source_id) or source_id not in m.pipelines:
         raise HTTPException(status_code=404, detail="unknown source")
     m.stop(source_id)
     return {"ok": True}
 
 
 @app.get("/api/status/{source_id}")
-def status(source_id: str):
+def status(request: Request, source_id: str):
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None:
+    if p is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
     return p.stats
 
 
 @app.get("/api/frame/{source_id}")
-def frame(source_id: str):
+def frame(request: Request, source_id: str):
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None or p.latest_frame is None:
+    if p is None or p.latest_frame is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="no frame available")
     jpg = frame_to_jpeg_bytes(p.latest_frame)
     return Response(content=jpg, media_type="image/jpeg")
 
 
 @app.get("/api/stream/{source_id}")
-def stream(source_id: str):
+def stream(request: Request, source_id: str):
     """Low-latency MJPEG stream. Point a browser <img src="/api/stream/{id}"> at it."""
     import time as _time
 
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None:
+    if p is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
 
     def gen():
@@ -642,8 +697,8 @@ def events(request: Request, limit: int = 100, camera_id: str | None = None, eve
 
 
 @app.get("/api/clips/{event_id}")
-def clip(event_id: int):
-    ev = _mgr().store.get_event(event_id)
+def clip(request: Request, event_id: int):
+    ev = _event_for_tenant(request, event_id)
     if ev is None or not ev.get("clip_path"):
         raise HTTPException(status_code=404, detail="no clip for event")
     ref = ev["clip_path"]
@@ -657,8 +712,8 @@ def clip(event_id: int):
 
 
 @app.get("/api/thumbs/{event_id}")
-def thumb(event_id: int):
-    ev = _mgr().store.get_event(event_id)
+def thumb(request: Request, event_id: int):
+    ev = _event_for_tenant(request, event_id)
     if ev is None or not ev.get("thumb_path"):
         raise HTTPException(status_code=404, detail="no thumbnail for event")
     ref = ev["thumb_path"]
@@ -698,7 +753,15 @@ def sightings(request: Request, identity_id: int):
 
 # -- config ------------------------------------------------------------
 @app.get("/api/config")
-def get_config():
+def get_config(request: Request):
+    """Read the configuration.
+
+    It carries provider keys, S3 credentials and the file-encryption key, so it is not
+    readable by every signed-in user - only by the roles that can also change it.
+    ponytail: secrets still come back intact because the Settings screen round-trips the
+    whole object; redacting them needs merge-on-save first or a save would wipe them.
+    """
+    _require_role(request, "admin", "manager")
     return config_to_dict(_mgr().cfg)
 
 
@@ -725,22 +788,22 @@ def class_names():
 
 
 @app.get("/api/zones/{source_id}")
-def zones(source_id: str):
+def zones(request: Request, source_id: str):
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None:
+    if p is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
     return p.stats.get("zones", [])
 
 
 @app.get("/api/heatmap/{source_id}")
-def heatmap(source_id: str):
+def heatmap(request: Request, source_id: str):
     import os
     import tempfile
 
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None:
+    if p is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
     tmp = tempfile.mktemp(suffix=".png")
     out = p.heatmap.render(tmp)
@@ -976,6 +1039,8 @@ def open_alerts(request: Request, limit: int = 200):
 @app.post("/api/escalate/{event_id}")
 def escalate(request: Request, event_id: int):
     _require_role(request, "admin", "security", "manager")
+    if _event_for_tenant(request, event_id) is None:
+        raise HTTPException(status_code=404, detail="event not found")
     _mgr().store.escalate(event_id)
     return {"ok": True}
 
@@ -984,6 +1049,8 @@ def escalate(request: Request, event_id: int):
 @app.post("/api/ack/{event_id}")
 def ack(request: Request, event_id: int):
     _require_role(request, "admin", "security", "manager")
+    if _event_for_tenant(request, event_id) is None:
+        raise HTTPException(status_code=404, detail="event not found")
     _mgr().store.acknowledge(event_id)
     return {"ok": True}
 
@@ -991,6 +1058,8 @@ def ack(request: Request, event_id: int):
 @app.post("/api/resolve/{event_id}")
 def resolve(request: Request, event_id: int):
     _require_role(request, "admin", "security", "manager")
+    if _event_for_tenant(request, event_id) is None:
+        raise HTTPException(status_code=404, detail="event not found")
     _mgr().store.resolve(event_id)
     return {"ok": True}
 
@@ -998,5 +1067,7 @@ def resolve(request: Request, event_id: int):
 @app.post("/api/assign/{event_id}")
 def assign(request: Request, event_id: int, data: dict):
     _require_role(request, "admin", "security", "manager")
+    if _event_for_tenant(request, event_id) is None:
+        raise HTTPException(status_code=404, detail="event not found")
     _mgr().store.assign(event_id, data.get("user", ""))
     return {"ok": True}

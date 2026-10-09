@@ -43,6 +43,10 @@ class SourceConfig:
     loop: bool = True
     # Fast mode: lower resolution + higher stride + no throttle (for imports).
     fast: bool = False
+    # Tenant that owns this camera. None = shared with everyone (e.g. a demo feed).
+    # Every /api/*/{source_id} endpoint checks this, so one hotel cannot watch or
+    # control another hotel's cameras.
+    tenant_id: int | None = None
 
 
 @dataclass
@@ -318,7 +322,11 @@ def hash_password(password: str) -> str:
 
 
 def _source_to_dict(s: SourceConfig) -> dict[str, Any]:
-    return {"id": s.id, "name": s.name, "uri": s.uri, "enabled": s.enabled, "loop": s.loop, "fast": s.fast}
+    return {
+        "id": s.id, "name": s.name, "uri": s.uri,
+        "enabled": s.enabled, "loop": s.loop, "fast": s.fast,
+        "tenant_id": s.tenant_id,
+    }
 
 
 def _source_from_dict(d: dict[str, Any]) -> SourceConfig:
@@ -329,6 +337,7 @@ def _source_from_dict(d: dict[str, Any]) -> SourceConfig:
         enabled=bool(d.get("enabled", True)),
         loop=bool(d.get("loop", True)),
         fast=bool(d.get("fast", False)),
+        tenant_id=d.get("tenant_id"),
     )
 
 
@@ -540,9 +549,13 @@ def config_from_dict(data: dict[str, Any]) -> AppConfig:
 
 
 def save_config(cfg: AppConfig, path: str | Path | None = None) -> Path:
-    """Persist the current config to JSON."""
+    """Persist the current config to JSON.
+
+    Resolves the path exactly like load_config does; otherwise a deployment that sets
+    SMART_CAM_CONFIG would read one file and write another.
+    """
     if path is None:
-        path = ROOT / "config.json"
+        path = os.environ.get("SMART_CAM_CONFIG", str(ROOT / "config.json"))
     data = {
         "sources": [_source_to_dict(s) for s in cfg.sources],
         "zones": [_zone_to_dict(z) for z in cfg.zones],
