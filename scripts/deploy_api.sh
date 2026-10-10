@@ -105,11 +105,20 @@ done
 [ "$ok" = "1" ] || { docker logs --tail 40 "$NAME" || true; rollback "the API did not come up."; }
 
 api=$(curl -s -o /dev/null -w '%{http_code}' https://agay.tech/api/health || true)
-cfg=$(curl -s -o /dev/null -w '%{http_code}' https://agay.tech/smartapi/api/config || true)
+
+# Prove the NEW code is actually running. Nine bad logins for a throwaway username must
+# end in 429; the old image would keep answering 401 forever. The throttle key is
+# host|username, so this cannot lock out a real account.
+probe=000
+for _ in $(seq 1 9); do
+  probe=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://agay.tech/smartapi/auth/login \
+    -H 'Content-Type: application/json' \
+    -d '{"username":"__deploy_probe__","password":"x"}' || true)
+done
 
 echo
-echo "  API health                     : $api   (want 200)"
-echo "  /api/config without a token    : $cfg   (want 401)"
+echo "  API health                            : $api     (want 200)"
+echo "  login throttle after 9 bad attempts   : $probe     (want 429)"
 
 if [ "$api" != "200" ]; then
   docker logs --tail 40 "$NAME" || true
