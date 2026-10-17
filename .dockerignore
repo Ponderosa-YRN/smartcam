@@ -13,6 +13,12 @@ frontend
 node_modules
 .next
 .edgestate.json
+# Secrets and local runtime state. Both Dockerfiles do COPY . ., so anything listed here
+# would otherwise be baked into an image layer and pushed to the registry.
+config.json
+.env
+.env.*
+.security-audit
 *.db
 *.log
 docs

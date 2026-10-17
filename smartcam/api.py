@@ -119,6 +119,24 @@ def _req_tenant(request: Request) -> int | None:
     return getattr(request.state, "user", {}).get("tenant_id")
 
 
+def _require_own_tenant(request: Request, tenant_id: int) -> None:
+    """Require a tenant admin acting on their own tenant.
+
+    The tenant id comes from the path, so without the comparison one customer's admin
+    could list, create or delete another customer's sites, devices and invites - and
+    create_device hands back a device token for that other tenant.
+    """
+    _require_role(request, "admin")
+    if tenant_id != _req_tenant(request):
+        raise HTTPException(status_code=404, detail="tenant not found")
+
+
+def _require_user_in_tenant(request: Request, user_id: int) -> None:
+    u = _mgr().store.get_user(user_id)
+    if u is None or u.get("tenant_id") != _req_tenant(request):
+        raise HTTPException(status_code=404, detail="user not found")
+
+
 def _event_for_tenant(request: Request, event_id: int) -> dict | None:
     """Fetch an event only if it belongs to the caller's tenant.
 
@@ -180,6 +198,15 @@ async def auth_middleware(request: Request, call_next):
     token = header[7:].strip() if header.lower().startswith("bearer ") else ""
     payload = read_token(token, _get_secret(), ACCESS_TOKEN_MAX_AGE) if token else None
     if payload is not None and payload.get("typ") == "access":
+        if _manager is None:
+            return JSONResponse({"detail": "starting"}, status_code=503)
+        # The token is good for 12 hours, so a deleted or demoted account would otherwise
+        # keep its old role for that whole window. Re-read the row and trust it instead.
+        # ponytail: one user lookup per request; cache it if request volume ever matters.
+        user = _manager.store.get_user(int(payload.get("sub", 0)))
+        if user is None:
+            return JSONResponse({"detail": "Not authenticated"}, status_code=401)
+        payload = {**payload, "role": user["role"], "tenant_id": user.get("tenant_id")}
         request.state.user = payload
         return await call_next(request)
     device = _resolve_device(request)
@@ -283,7 +310,7 @@ def list_users(request: Request):
     _require_role(request, "admin")
     return [
         {"id": u["id"], "username": u["username"], "role": u["role"], "tenant_id": u.get("tenant_id"), "created_at": u.get("created_at")}
-        for u in _mgr().store.list_users()
+        for u in _mgr().store.list_users(_req_tenant(request))
     ]
 
 
@@ -299,9 +326,8 @@ def create_user(request: Request, data: dict):
         raise HTTPException(status_code=400, detail="invalid role")
     if _mgr().store.get_user_by_username(username) is not None:
         raise HTTPException(status_code=409, detail="username already exists")
-    tenant_id = data.get("tenant_id")
-    if tenant_id is None:
-        tenant_id = getattr(request.state, "user", {}).get("tenant_id")
+    # Never trust a supplied tenant_id: an admin may only add users to their own tenant.
+    tenant_id = _req_tenant(request)
     uid = _mgr().store.create_user(username, hash_password(password), role=role, tenant_id=tenant_id)
     return {"id": uid, "username": username, "role": role, "tenant_id": tenant_id}
 
@@ -309,6 +335,7 @@ def create_user(request: Request, data: dict):
 @app.put("/auth/users/{user_id}")
 def update_user(request: Request, user_id: int, data: dict):
     _require_role(request, "admin")
+    _require_user_in_tenant(request, user_id)
     fields: dict = {}
     if data.get("role") in ROLES:
         fields["role"] = data["role"]
@@ -323,6 +350,7 @@ def update_user(request: Request, user_id: int, data: dict):
 @app.delete("/auth/users/{user_id}")
 def delete_user(request: Request, user_id: int):
     _require_role(request, "admin")
+    _require_user_in_tenant(request, user_id)
     _mgr().store.delete_user(user_id)
     return {"ok": True}
 
@@ -330,7 +358,7 @@ def delete_user(request: Request, user_id: int):
 @app.get("/tenants")
 def list_tenants(request: Request):
     _require_role(request, "admin")
-    return _mgr().store.list_tenants()
+    return [t for t in _mgr().store.list_tenants() if t["id"] == _req_tenant(request)]
 
 
 @app.post("/tenants")
@@ -348,20 +376,20 @@ def create_tenant(request: Request, data: dict):
 
 @app.delete("/tenants/{tenant_id}")
 def delete_tenant(request: Request, tenant_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     _mgr().store.delete_tenant(tenant_id)
     return {"ok": True}
 
 
 @app.get("/tenants/{tenant_id}/sites")
 def tenant_sites(request: Request, tenant_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     return _mgr().store.list_sites(tenant_id)
 
 
 @app.post("/tenants/{tenant_id}/sites")
 def create_site(request: Request, tenant_id: int, data: dict):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     name = str(data.get("name", "")).strip()
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
@@ -371,13 +399,13 @@ def create_site(request: Request, tenant_id: int, data: dict):
 
 @app.get("/tenants/{tenant_id}/devices")
 def tenant_devices(request: Request, tenant_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     return _mgr().store.list_devices(tenant_id)
 
 
 @app.post("/tenants/{tenant_id}/devices")
 def create_device(request: Request, tenant_id: int, data: dict):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     name = str(data.get("name", "")).strip()
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
@@ -389,7 +417,7 @@ def create_device(request: Request, tenant_id: int, data: dict):
 
 @app.post("/tenants/{tenant_id}/devices/{device_id}/rotate-token")
 def rotate_device_token(request: Request, tenant_id: int, device_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     dev = _mgr().store.get_device(device_id)
     if dev is None or dev.get("tenant_id") != tenant_id:
         raise HTTPException(status_code=404, detail="device not found")
@@ -400,7 +428,7 @@ def rotate_device_token(request: Request, tenant_id: int, device_id: int):
 
 @app.delete("/tenants/{tenant_id}/devices/{device_id}")
 def delete_device(request: Request, tenant_id: int, device_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     dev = _mgr().store.get_device(device_id)
     if dev is None or dev.get("tenant_id") != tenant_id:
         raise HTTPException(status_code=404, detail="device not found")
@@ -523,7 +551,7 @@ async def ingest_media(request: Request, event_id: int, clip: UploadFile = File(
 
 @app.post("/tenants/{tenant_id}/invites")
 def create_invite(request: Request, tenant_id: int, data: dict):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     email = str(data.get("email", "")).strip()
     role = data.get("role", "viewer")
     if not email or role not in ROLES:
@@ -537,13 +565,13 @@ def create_invite(request: Request, tenant_id: int, data: dict):
 
 @app.get("/tenants/{tenant_id}/invites")
 def list_invites(request: Request, tenant_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     return _mgr().store.list_invites(tenant_id)
 
 
 @app.delete("/tenants/{tenant_id}/invites/{invite_id}")
 def revoke_invite(request: Request, tenant_id: int, invite_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     _mgr().store.delete_invite(invite_id)
     return {"ok": True}
 
@@ -581,7 +609,7 @@ def list_plans(request: Request):
 
 @app.get("/tenants/{tenant_id}/usage")
 def get_tenant_usage(request: Request, tenant_id: int):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     tenant = _mgr().store.get_tenant(tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="unknown tenant")
@@ -597,7 +625,7 @@ def get_tenant_usage(request: Request, tenant_id: int):
 
 @app.post("/tenants/{tenant_id}/billing")
 def update_billing(request: Request, tenant_id: int, data: dict):
-    _require_role(request, "admin")
+    _require_own_tenant(request, tenant_id)
     fields: dict = {}
     if data.get("plan") in PLANS:
         fields["plan"] = data["plan"]
@@ -910,6 +938,8 @@ def add_face(request: Request, data: dict):
 @app.delete("/api/faces/{face_id}")
 def delete_face(request: Request, face_id: int):
     _require_role(request, "admin", "manager")
+    if not any(f["id"] == face_id for f in _mgr().store.list_faces(_req_tenant(request))):
+        raise HTTPException(status_code=404, detail="face not found")
     _mgr().store.delete_face(face_id)
     return {"ok": True}
 
@@ -917,7 +947,15 @@ def delete_face(request: Request, face_id: int):
 @app.post("/api/delete_person")
 def delete_person(request: Request, data: dict):
     _require_role(request, "admin")
-    _mgr().store.delete_person(name=data.get("name"), face_id=data.get("face_id"))
+    face_id = data.get("face_id")
+    name = data.get("name")
+    # Resolve the face inside the caller's tenant first: store.delete_person matches on a
+    # bare name or id and would otherwise wipe another tenant's record.
+    owned = [f["id"] for f in _mgr().store.list_faces(_req_tenant(request))
+             if f["id"] == face_id or (face_id is None and f.get("name") == name)]
+    if not owned:
+        raise HTTPException(status_code=404, detail="person not found")
+    _mgr().store.delete_person(face_id=owned[0])
     return {"ok": True}
 
 
@@ -930,6 +968,8 @@ def add_identity(request: Request, data: dict):
 @app.delete("/api/identities/{identity_id}")
 def delete_identity(request: Request, identity_id: int):
     _require_role(request, "admin", "manager")
+    if not any(i["id"] == identity_id for i in _mgr().store.list_identities(_req_tenant(request))):
+        raise HTTPException(status_code=404, detail="identity not found")
     _mgr().store.delete_identity(identity_id)
     return {"ok": True}
 
