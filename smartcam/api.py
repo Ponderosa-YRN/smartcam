@@ -131,17 +131,20 @@ def _event_for_tenant(request: Request, event_id: int) -> dict | None:
     return ev
 
 
-def _can_see_source(request: Request, source_id: str) -> bool:
-    """True when the caller may watch or control this camera.
+def _tenant_can_see_source(tenant: int | None, source_id: str) -> bool:
+    """True when this tenant may watch or control this camera.
 
     A camera with no tenant_id is shared (a demo feed); otherwise it belongs to exactly
     one tenant.
     """
-    tenant = _req_tenant(request)
     for s in _mgr().cfg.sources:
         if s.id == source_id:
             return s.tenant_id is None or s.tenant_id == tenant
     return False
+
+
+def _can_see_source(request: Request, source_id: str) -> bool:
+    return _tenant_can_see_source(_req_tenant(request), source_id)
 
 
 def _slugify(text: str) -> str:
@@ -634,6 +637,7 @@ def sources(request: Request):
 
 @app.post("/api/start/{source_id}")
 def start(request: Request, source_id: str):
+    _require_role(request, "admin", "manager")
     m = _mgr()
     if not _can_see_source(request, source_id) or source_id not in m.pipelines:
         raise HTTPException(status_code=404, detail="unknown source")
@@ -643,6 +647,7 @@ def start(request: Request, source_id: str):
 
 @app.post("/api/stop/{source_id}")
 def stop(request: Request, source_id: str):
+    _require_role(request, "admin", "manager")
     m = _mgr()
     if not _can_see_source(request, source_id) or source_id not in m.pipelines:
         raise HTTPException(status_code=404, detail="unknown source")
@@ -941,7 +946,7 @@ async def ws_events(websocket: WebSocket):
     last_id = 0
     try:
         while True:
-            latest = _mgr().store.list_events(limit=1)
+            latest = _mgr().store.list_events(limit=1, tenant_id=payload.get("tenant_id"))
             eid = latest[0]["id"] if latest else 0
             if eid > last_id:
                 last_id = eid
@@ -969,7 +974,7 @@ async def ws_webrtc(websocket: WebSocket, source_id: str):
         await websocket.close(code=1008)
         return
     p = _mgr().pipelines.get(source_id)
-    if p is None:
+    if p is None or not _tenant_can_see_source(payload.get("tenant_id"), source_id):
         await websocket.close(code=1008)
         return
     from .webrtc import available, make_configuration, make_track
