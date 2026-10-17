@@ -28,8 +28,9 @@ export default function LiveFeed() {
 
     function connect() {
       if (closed) return;
-      const url = wsBase() + "/ws/events?token=" + encodeURIComponent(token as string);
-      ws = new WebSocket(url);
+      // The token rides as a subprotocol rather than a query string so it stays out of
+      // proxy and access logs. The server still accepts ?token= for older clients.
+      ws = new WebSocket(wsBase() + "/ws/events", ["bearer", token as string]);
       ws.onopen = () => setConnected(true);
       ws.onmessage = (e) => {
         try {

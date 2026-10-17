@@ -5,6 +5,7 @@ Run with:
 """
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import re
@@ -18,6 +19,7 @@ from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 
+from .audit import audit_log
 from .auth import ROLES, authenticate_user, bootstrap_admin
 from .config import config_from_dict, config_to_dict, load_config
 from .pipeline import PipelineManager
@@ -97,6 +99,47 @@ def _login_blocked(key: str) -> bool:
     hits = [t for t in _LOGIN_FAILS.get(key, []) if now - t < _LOGIN_WINDOW_SEC]
     _LOGIN_FAILS[key] = hits
     return len(hits) >= _LOGIN_MAX_FAILS
+
+
+# Signup is the only unauthenticated write path, so cap how fast one host can use it.
+_SIGNUPS: dict[str, list[float]] = {}
+_SIGNUP_MAX = 5
+_SIGNUP_WINDOW_SEC = 3600.0
+
+# Ceiling for a single uploaded file, shared by the dashboard upload and device ingest.
+_UPLOAD_MAX_BYTES = 2 * 1024 ** 3
+_UPLOAD_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
+
+
+def _audit(role: str, action: str, detail: str = "") -> None:
+    """Append to the audit trail. Best-effort, never blocks the request."""
+    try:
+        audit_log(_mgr().cfg.data_dir / "audit.log", role, action, detail)
+    except Exception:
+        pass
+
+
+def _signup_allowed(request: Request) -> bool:
+    host = request.client.host if request.client else "?"
+    now = time.time()
+    hits = [t for t in _SIGNUPS.get(host, []) if now - t < _SIGNUP_WINDOW_SEC]
+    if len(hits) >= _SIGNUP_MAX:
+        _SIGNUPS[host] = hits
+        return False
+    hits.append(now)
+    _SIGNUPS[host] = hits
+    return True
+
+
+def _require_platform_key(request: Request) -> None:
+    """Plan and billing status are money, so only the operator may set them.
+
+    Both used to be writable by any tenant admin through their own billing route, which
+    let a customer move themselves onto the top plan for free. No env var means closed.
+    """
+    expected = os.environ.get("SMART_CAM_PLATFORM_KEY", "")
+    if not expected or not hmac.compare_digest(request.headers.get("x-platform-key", ""), expected):
+        raise HTTPException(status_code=403, detail="plan changes require a platform key")
 
 
 _token_secret = ""
@@ -229,7 +272,9 @@ app.add_middleware(
 
 
 @app.post("/auth/register")
-def register(data: dict):
+def register(request: Request, data: dict):
+    if not _signup_allowed(request):
+        raise HTTPException(status_code=429, detail="Too many signups from this address. Try again later.")
     company = str(data.get("company", "")).strip()
     slug = str(data.get("slug", "")).strip().lower() or _slugify(company)
     username = str(data.get("username", "")).strip()
@@ -242,6 +287,7 @@ def register(data: dict):
         raise HTTPException(status_code=409, detail="username already exists")
     tid = _mgr().store.create_tenant(slug, company)
     uid = _mgr().store.create_user(username, hash_password(password), role="admin", tenant_id=tid)
+    _audit("admin", "tenant.register", f"slug={slug} user={username}")
     secret = _get_secret()
     access = create_token({"sub": uid, "username": username, "role": "admin", "tenant_id": tid, "typ": "access"}, secret)
     refresh = create_token({"sub": uid, "typ": "refresh"}, secret)
@@ -264,8 +310,10 @@ def login(request: Request, data: dict):
     user = authenticate_user(_mgr().store, username, password)
     if user is None:
         _LOGIN_FAILS.setdefault(key, []).append(time.time())
+        _audit("-", "login.fail", f"user={username} key={key}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     _LOGIN_FAILS.pop(key, None)
+    _audit(user["role"], "login.ok", f"user={user['username']}")
     secret = _get_secret()
     access = create_token({"sub": user["id"], "username": user["username"], "role": user["role"], "tenant_id": user.get("tenant_id"), "typ": "access"}, secret)
     refresh = create_token({"sub": user["id"], "typ": "refresh"}, secret)
@@ -329,6 +377,7 @@ def create_user(request: Request, data: dict):
     # Never trust a supplied tenant_id: an admin may only add users to their own tenant.
     tenant_id = _req_tenant(request)
     uid = _mgr().store.create_user(username, hash_password(password), role=role, tenant_id=tenant_id)
+    _audit("admin", "user.create", f"user={username} role={role} tenant={tenant_id}")
     return {"id": uid, "username": username, "role": role, "tenant_id": tenant_id}
 
 
@@ -344,6 +393,7 @@ def update_user(request: Request, user_id: int, data: dict):
     if not fields:
         raise HTTPException(status_code=400, detail="nothing to update")
     _mgr().store.update_user(user_id, **fields)
+    _audit("admin", "user.update", f"id={user_id} fields={','.join(sorted(fields))}")
     return {"ok": True}
 
 
@@ -352,6 +402,7 @@ def delete_user(request: Request, user_id: int):
     _require_role(request, "admin")
     _require_user_in_tenant(request, user_id)
     _mgr().store.delete_user(user_id)
+    _audit("admin", "user.delete", f"id={user_id}")
     return {"ok": True}
 
 
@@ -518,16 +569,36 @@ def ingest_occupancy(request: Request, data: dict):
     return {"created": n}
 
 
+async def _write_capped(file: UploadFile, dest: Path) -> None:
+    """Stream an upload to disk, discarding it once it passes _UPLOAD_MAX_BYTES.
+
+    Both upload paths used to copy whatever they were sent straight to disk.
+    """
+    written = 0
+    try:
+        with open(dest, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > _UPLOAD_MAX_BYTES:
+                    raise HTTPException(status_code=413, detail="upload too large")
+                f.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
+
+
 async def _save_upload(base_dir: Path, event_id: int, file: UploadFile, kind: str) -> str:
     base_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(file.filename or "").suffix or (".jpg" if kind == "thumb" else ".mp4")
+    # The extension came straight from the client, so anything outside this set could drop
+    # an arbitrary file type into the media directory.
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _UPLOAD_EXTS:
+        ext = ".jpg" if kind == "thumb" else ".mp4"
     dest = base_dir / ("event_%d_%s%s" % (event_id, kind, ext))
-    with open(dest, "wb") as f:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
+    await _write_capped(file, dest)
     return str(dest)
 
 
@@ -626,6 +697,8 @@ def get_tenant_usage(request: Request, tenant_id: int):
 @app.post("/tenants/{tenant_id}/billing")
 def update_billing(request: Request, tenant_id: int, data: dict):
     _require_own_tenant(request, tenant_id)
+    if data.get("plan") in PLANS or "billing_status" in data:
+        _require_platform_key(request)
     fields: dict = {}
     if data.get("plan") in PLANS:
         fields["plan"] = data["plan"]
@@ -919,12 +992,7 @@ async def upload_video(request: Request, file: UploadFile = File(...)):
     dest = up_dir / name
     if dest.exists():
         dest = up_dir / (dest.stem + "_" + str(int(time.time())) + dest.suffix)
-    with open(dest, "wb") as f:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            f.write(chunk)
+    await _write_capped(file, dest)
     return {"path": str(dest), "filename": dest.name}
 
 
@@ -975,14 +1043,28 @@ def delete_identity(request: Request, identity_id: int):
 
 
 # -- live event feed (WebSocket) ---------------------------------------
+def _ws_token(websocket: WebSocket) -> tuple[str, str | None]:
+    """Read the access token from a 'bearer' subprotocol, falling back to the query string.
+
+    A browser cannot set an Authorization header on a WebSocket, so the token used to be
+    query-string only - which writes it into every proxy and access log along the way.
+    Offering it as a subprotocol keeps it out of the URL; the query string still works so
+    a client that has not been rebuilt yet keeps connecting.
+    """
+    parts = [p.strip() for p in websocket.headers.get("sec-websocket-protocol", "").split(",")]
+    if len(parts) == 2 and parts[0] == "bearer":
+        return parts[1], "bearer"
+    return websocket.query_params.get("token", ""), None
+
+
 @app.websocket("/ws/events")
 async def ws_events(websocket: WebSocket):
-    token = websocket.query_params.get("token", "")
+    token, subprotocol = _ws_token(websocket)
     payload = read_token(token, _get_secret(), ACCESS_TOKEN_MAX_AGE) if token else None
     if payload is None or payload.get("typ") != "access":
         await websocket.close(code=1008)
         return
-    await websocket.accept()
+    await websocket.accept(subprotocol=subprotocol)
     last_id = 0
     try:
         while True:
@@ -1008,7 +1090,7 @@ def webrtc_config(request: Request):
 
 @app.websocket("/ws/webrtc/{source_id}")
 async def ws_webrtc(websocket: WebSocket, source_id: str):
-    token = websocket.query_params.get("token", "")
+    token, subprotocol = _ws_token(websocket)
     payload = read_token(token, _get_secret(), ACCESS_TOKEN_MAX_AGE) if token else None
     if payload is None or payload.get("typ") != "access":
         await websocket.close(code=1008)
@@ -1021,12 +1103,12 @@ async def ws_webrtc(websocket: WebSocket, source_id: str):
 
     wcfg = _mgr().cfg.webrtc
     if not getattr(wcfg, "enabled", True):
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
         await websocket.send_json({"type": "error", "error": "webrtc disabled"})
         await websocket.close()
         return
     if not available():
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
         await websocket.send_json({"type": "error", "error": "aiortc not installed"})
         await websocket.close()
         return
@@ -1034,7 +1116,7 @@ async def ws_webrtc(websocket: WebSocket, source_id: str):
     from aiortc import RTCIceCandidate, RTCPeerConnection, RTCSessionDescription
     from aiortc.contrib.media import MediaRelay
 
-    await websocket.accept()
+    await websocket.accept(subprotocol=subprotocol)
     pc = RTCPeerConnection(configuration=make_configuration(wcfg))
     relay = MediaRelay()
     pc.addTrack(relay.subscribe(make_track(p)))

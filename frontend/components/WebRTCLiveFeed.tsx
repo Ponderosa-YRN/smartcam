@@ -38,10 +38,11 @@ export default function WebRTCLiveFeed({ sourceId, name }: { sourceId: string; n
       if (cancelled) return;
 
       const token = getToken() ?? "";
-      const wsUrl = wsBase() + "/ws/webrtc/" + sourceId + "?token=" + encodeURIComponent(token);
+      const wsUrl = wsBase() + "/ws/webrtc/" + sourceId;
 
       pc = new RTCPeerConnection({ iceServers });
-      ws = new WebSocket(wsUrl);
+      // Token rides as a subprotocol so it stays out of proxy and access logs.
+      ws = new WebSocket(wsUrl, token ? ["bearer", token] : undefined);
 
       pc.ontrack = (ev) => {
         if (ev.streams && ev.streams[0]) {
