@@ -74,6 +74,10 @@ if [ -f /proc/net/if_inet6 ]; then PORT_ARGS+=(-p "[::1]:8000:8000"); fi
 echo
 echo "==> stopping $NAME (a few seconds of downtime start here)"
 docker stop "$NAME" >/dev/null
+# A backup from an earlier deploy that was never cleaned up makes the rename below fail,
+# leaving the API stopped. Clear it first - it is superseded by the container we are
+# about to keep.
+docker rm -f "$BACKUP" >/dev/null 2>&1 || true
 docker rename "$NAME" "$BACKUP"
 
 rollback() {
@@ -104,25 +108,28 @@ for _ in $(seq 1 40); do
 done
 [ "$ok" = "1" ] || { docker logs --tail 40 "$NAME" || true; rollback "the API did not come up."; }
 
+# Reported, but NOT fatal: the site is deliberately firewalled while it is dark, and an
+# unreachable public URL says nothing about the container itself.
 api=$(curl -s -o /dev/null -w '%{http_code}' https://agay.tech/api/health || true)
 
 # Prove the NEW code is actually running. Nine bad logins for a throwaway username must
 # end in 429; the old image would keep answering 401 forever. The throttle key is
-# host|username, so this cannot lock out a real account.
+# host|username, so this cannot lock out a real account. Probed on loopback so the check
+# still works while the public URL is firewalled.
 probe=000
 for _ in $(seq 1 9); do
-  probe=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://agay.tech/smartapi/auth/login \
+  probe=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/auth/login \
     -H 'Content-Type: application/json' \
     -d '{"username":"__deploy_probe__","password":"x"}' || true)
 done
 
 echo
-echo "  API health                            : $api     (want 200)"
+echo "  API health (through Caddy)            : $api     (want 200; 000 while the site is dark)"
 echo "  login throttle after 9 bad attempts   : $probe     (want 429)"
 
-if [ "$api" != "200" ]; then
+if [ "$probe" != "429" ]; then
   docker logs --tail 40 "$NAME" || true
-  rollback "the API is not healthy through Caddy."
+  rollback "the new code is not running - the login throttle did not engage."
 fi
 
 echo
