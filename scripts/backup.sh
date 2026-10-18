@@ -10,6 +10,7 @@
 #   BACKUP_KEEP    days to retain                   (default 14)
 #   BACKUP_MEDIA   1 to include clips + thumbnails  (default 1)
 #   BACKUP_REMOTE  rclone target for the off-site copy, e.g. b2:smartcam-backups
+#   BACKUP_REMOTE_KEEP  days to keep archives remotely (default 30)
 set -euo pipefail
 
 NAME=${NAME:-smartcam}
@@ -17,6 +18,7 @@ BACKUP_DIR=${BACKUP_DIR:-/root/smartcam-backups}
 KEEP_DAYS=${BACKUP_KEEP:-14}
 WITH_MEDIA=${BACKUP_MEDIA:-1}
 REMOTE=${BACKUP_REMOTE:-}
+REMOTE_KEEP_DAYS=${BACKUP_REMOTE_KEEP:-30}
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 
 mkdir -p "$BACKUP_DIR"
@@ -60,6 +62,10 @@ if [ -n "$REMOTE" ]; then
   echo "==> uploading to $REMOTE"
   rclone copy "$ARCHIVE" "$REMOTE" --quiet
   echo "    uploaded"
+  # rclone copy only ever adds. Without this the remote grows without limit and the
+  # storage bill climbs quietly forever.
+  echo "==> pruning remote archives older than $REMOTE_KEEP_DAYS days"
+  rclone delete "$REMOTE" --min-age "${REMOTE_KEEP_DAYS}d" --include 'smartcam-*.tar.gz' --quiet || true
 else
   echo "WARNING: BACKUP_REMOTE is not set, so this copy is on the same machine as the data."
   echo "         That protects against mistakes, not against losing the VPS."
