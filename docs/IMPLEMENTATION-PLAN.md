@@ -15,8 +15,8 @@
 | Site availability | **Deliberately dark** — firewall drops everything but SSH, verified externally |
 | Security audit | **Incomplete** — the mandated validators cannot run on Windows; needs a POSIX host |
 | Billing | Data model only; no payment path |
-| Marketing site | Half-built, untracked, no backup, and aimed at a different segment than the product |
-| Segment choice | **Undecided** — hospitality vs long-term care |
+| Marketing site | Half-built care-oriented pages under `frontend/app/(site)/`, untracked and unbacked. They belong to the other product |
+| Segment choice | **Decided** — hotels and gated estates. The Canadian care product is a separate repository |
 
 **The single most important fact:** the product is further along than the business decision behind
 it. The next phase should be gated on deciding who it is for, because that choice changes privacy
@@ -47,22 +47,22 @@ defaults, consent requirements, pricing and the entire marketing site.
 **Exit criteria:** a reboot does not republish the site, and nothing of value exists on exactly one
 machine.
 
-## 4. Phase 1 — decide the market (1 week, no code)
+## 4. Phase 1 — validate the market (1 week, no code)
 
-Not an engineering phase. Its output is one paragraph that says which segment is first.
+The segment is decided: **hotels and gated estates in Nigeria**. What remains unvalidated is the
+buyer and the price, and that still costs no code.
 
-- Talk to five prospects in the chosen segment. One question: *what did you do the last time
-  something happened on camera?*
-- Establish whether face recognition is lawful in the target setting. For Canadian long-term care
-  this is a **hard gate** — if consent cannot be obtained, the biometric features are not sellable
-  there and the product must adapt (re-ID of residents may be permitted where face recognition
-  is not).
-- Price against what they pay today, not against software.
+- Talk to five prospects. One question: *what did you do the last time something happened on
+  camera?* The answer tells you whether the product solves a felt problem or an imagined one.
+- Ask an estate manager who they report an incident to, and what that report looks like today.
+  That artefact is the thing your event-and-clip history should replace.
+- Price against what they pay today — guards, an installer's maintenance contract, nothing — not
+  against software.
 
-**Exit criteria:** a named segment, a named first customer type, and a documented answer on
-biometrics legality.
+**Exit criteria:** a named first customer, a named price, and one written artefact the product
+replaces.
 
-**If this phase is skipped, Phase 5 is wasted effort.**
+**If this phase is skipped, everything after it is guesswork.**
 
 ## 5. Phase 2 — close the security backlog (3–5 days)
 
@@ -128,7 +128,7 @@ unassisted.
 
 | Task | Detail |
 |---|---|
-| Rebuild and deploy the web tier | `deploy_web.sh` — blocked on the marketing site being finished |
+| Rebuild and deploy the web tier | `deploy_web.sh` — no longer blocked; the care marketing pages should be moved out of this repo first, not shipped from it |
 | Ship the frontend half of the WebSocket token change | Server already accepts both forms |
 | Remove the firewall drop for 80/443 | Keep SSH restricted |
 | Verify from outside | Login, live video, an event, a clip, a co-pilot answer |

@@ -12,8 +12,9 @@ YOLOv8 detection pipeline; the platform turns detections into searchable events,
 occupancy trends, licence-plate reads and person re-identification, and exposes them through a
 web dashboard with an AI co-pilot.
 
-The product is built and deployable. Two candidate markets are in play and the choice is not
-yet made — see §9. That decision drives everything else in this document.
+The product is built and deployable. The market is **gated estates and hotels**, starting in
+Nigeria. A Canadian long-term-care product is planned separately, as an independent codebase in
+its own repository — it is **out of scope here**, and nothing in this document applies to it.
 
 ## 2. Problem
 
@@ -34,17 +35,21 @@ instead of asking them to watch.**
 | **Owner / administrator** | Runs the account | Manage users, cameras, plans, retention | Spreadsheet and a phone call to the installer |
 | **Edge device** | Software on the site | Push detections and media upstream reliably | Not a human actor, but a first-class principal |
 
-**Segment A — hospitality (Nigeria).** Hotels with 20–200 cameras. Original go-to-market: 20
-customers in 2 months. Buying trigger: theft, guest disputes, staff accountability. Constraints:
-intermittent connectivity, price sensitivity, no in-house IT.
+**Hotels (Nigeria).** 20–200 cameras. Buying trigger: theft, guest disputes, staff accountability,
+car-park control. Constraints: intermittent connectivity, price sensitivity, no in-house IT.
 
-**Segment B — long-term care (Canada).** Nursing homes. Buying trigger: resident safety,
-wandering and elopement, incident documentation for regulators and insurers. Constraints:
-privacy law (PIPEDA and provincial health privacy), consent for biometrics, procurement cycles.
-The untracked marketing site under `frontend/app/(site)/` is written for this segment.
+**Gated estates (Nigeria).** A perimeter, a gatehouse and shared facilities, managed on behalf of
+a residents' association. Buying trigger: intrusion, perimeter loitering, unknown vehicles,
+contractor oversight. The association's demand for documented incidents is what the event and
+clip history exists to satisfy.
 
-These segments have **different** privacy postures, sales cycles and default settings. Building
-for both simultaneously is the largest open risk in the project.
+Both are served by the same feature set, and that is not a coincidence: the zone rules are
+`loitering`, `queue`, `intrusion` and `parking` with vehicle capacity counting; ALPR runs on
+vehicles inside parking zones; the default camera is named "Lobby". The code was built for these
+two buyers.
+
+**Out of scope:** long-term care, healthcare, and any deployment governed by Canadian or health
+privacy law. That is a separate product in a separate repository.
 
 ## 4. Jobs to be done
 
@@ -158,21 +163,21 @@ launch-ready for paying customers**:
 
 ## 9. Open product decisions
 
-1. **Which segment first?** Hospitality or long-term care. They differ in privacy defaults,
-   consent requirements, sales cycle and price. **Recommendation: pick one for the next 90
-   days.** The marketing site and the product defaults currently point in different directions.
-2. **Pricing.** Free/Pro/Enterprise tiers are defined in code but no payment path exists.
-3. **Biometrics under Canadian health privacy law.** Face recognition in a care setting may
-   require explicit consent or may be prohibited. This is a legal question that gates Segment B.
-4. **On-premise vs hosted.** `SMART_CAM_CLOUD_ONLY` exists but the commercial model for
-   on-premise has not been defined.
+1. **Pricing and packaging.** Free/Pro/Enterprise tiers are defined in code but no payment path
+   exists. An estate and a hotel buy differently — per gate or per unit versus per room.
+2. **On-premise vs hosted.** `SMART_CAM_CLOUD_ONLY` exists but the commercial model for
+   on-premise is undefined. Intermittent connectivity makes this a live question, not a
+   hypothetical.
+3. **This product's marketing site.** The pages under `frontend/app/(site)/` were written for the
+   Canadian care product. They belong in the other repository; estates and hotels need their own.
 
 ## 10. Risks
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Two segments, one product | Split focus, neither ships well | Decide by 90 days |
-| Biometric compliance | Legal exposure, product ban in target market | Legal review before Segment B launch |
+| A second product splits focus | Neither ships well | The care product is a separate repo with its own scope and its own clock |
+| Estate buying is committee-led | Slow decision, unclear owner | Sell to whoever owns security today, not the association |
+| Connectivity at the site | Missed events, support load | Edge buffering; verify reconnect behaviour before the first pilot |
 | Single VPS, no redundancy | Outage loses trust | Backups + documented restore |
 | Security debt | Breach destroys a young brand | Finish the audit backlog before launch |
 | Founder bandwidth | Everything is single-threaded | Ruthless scope |

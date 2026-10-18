@@ -20,8 +20,8 @@ glance before it offers anything to configure.
 
 | Segment | Context of use | Tone implication |
 |---|---|---|
-| Hospitality (Nigeria) | Fast-moving, intermittent connectivity, minimal training | Obvious labels, forgiving loading states, no jargon |
-| Long-term care (Canada) | Compliance-sensitive, clinical adjacent | Calm, restrained, defensible; no gamification |
+| Hotels (Nigeria) | Fast-moving, intermittent connectivity, minimal training | Obvious labels, forgiving loading states, no jargon |
+| Gated estates (Nigeria) | Estate manager reporting to a residents' association; incidents get forwarded | Calm and factual. The clip is evidence, so the framing must survive being forwarded |
 
 Copy voice: plain, specific, unhurried. Say "2 people detected at Front Gate" — not "AI analysis
 complete". Errors say what happened and what to do next. Never blame the user.
@@ -143,17 +143,19 @@ Current gaps are real and should be treated as work, not as done:
 
 ## 8. Marketing site direction
 
-The public site lives in `frontend/app/(site)/` and is a **separate, concurrent effort** — it is
-not covered by the security review of the application. Current structure: how-it-works, for-
-nursing-homes, for-families, technology, security-privacy, about, resources (including a wandering
-and elopement checklist), book-a-demo, contact, waitlist, legal.
+**The pages currently in `frontend/app/(site)/` do not belong to this product.** They are written
+for a Canadian long-term-care company — for-nursing-homes, for-families, a wandering and elopement
+checklist, PIPEDA compliance page. They should be moved to that project's own repository.
 
-Direction: it is written for **long-term care**, while the application's defaults and original
-go-to-market target **hospitality**. Resolve that mismatch before publishing — see
-`docs/PRD.md` §9.
+This product needs its own marketing site for **hotels and gated estates**. Direction: lead with
+the incident, not the technology. "At 2:14am someone was at the east gate for four minutes. Here
+is the clip." The buyer is a hotel manager or estate manager who answers to an owner or a
+residents' association, and who is judged on how quickly and clearly they can explain what
+happened.
 
-Tone on the marketing site should stay closer to "reassurance" than "surveillance". The audience is
-care providers, and their concern is resident safety and liability, not catching people.
+Tone: plain and operational, not reassuring and not macho. Avoid surveillance language — estate
+residents are also the audience for the output, and "we watch your perimeter" reads worse than
+"you can show what happened."
 
 ## 9. Deliverables expected from a designer
 

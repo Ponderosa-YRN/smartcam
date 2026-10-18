@@ -18,6 +18,9 @@ demo/*.mp4
 demo/*.avi
 !demo/.gitkeep
 
+# Security audit output (never committed)
+.security-audit/
+
 # Frontend build output
 frontend/node_modules/
 frontend/.next/
