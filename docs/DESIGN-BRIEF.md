@@ -143,9 +143,8 @@ Current gaps are real and should be treated as work, not as done:
 
 ## 8. Marketing site direction
 
-**The pages currently in `frontend/app/(site)/` do not belong to this product.** They are written
-for a Canadian long-term-care company — for-nursing-homes, for-families, a wandering and elopement
-checklist, PIPEDA compliance page. They should be moved to that project's own repository.
+**There is no marketing site yet.** The care-oriented pages that occupied `frontend/app/(site)/`
+were removed from this repository and belong to a separate product. This product needs its own.
 
 This product needs its own marketing site for **hotels and gated estates**. Direction: lead with
 the incident, not the technology. "At 2:14am someone was at the east gate for four minutes. Here

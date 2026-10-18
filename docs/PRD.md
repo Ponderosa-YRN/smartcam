@@ -168,8 +168,9 @@ launch-ready for paying customers**:
 2. **On-premise vs hosted.** `SMART_CAM_CLOUD_ONLY` exists but the commercial model for
    on-premise is undefined. Intermittent connectivity makes this a live question, not a
    hypothetical.
-3. **This product's marketing site.** The pages under `frontend/app/(site)/` were written for the
-   Canadian care product. They belong in the other repository; estates and hotels need their own.
+3. **This product has no marketing site.** Everything the repository had was written for the other
+   product and has been removed. Hotels and estates need their own, and it is the largest remaining
+   piece of work before a relaunch.
 
 ## 10. Risks
 

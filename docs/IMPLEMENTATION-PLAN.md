@@ -15,7 +15,7 @@
 | Site availability | **Deliberately dark** — firewall drops everything but SSH, verified externally |
 | Security audit | **Incomplete** — the mandated validators cannot run on Windows; needs a POSIX host |
 | Billing | Data model only; no payment path |
-| Marketing site | Half-built care-oriented pages under `frontend/app/(site)/`, untracked and unbacked. They belong to the other product |
+| Marketing site | **None.** The care-oriented pages were removed; this product needs its own for hotels and estates |
 | Segment choice | **Decided** — hotels and gated estates. The Canadian care product is a separate repository |
 
 **The single most important fact:** the product is further along than the business decision behind
@@ -128,7 +128,7 @@ unassisted.
 
 | Task | Detail |
 |---|---|
-| Rebuild and deploy the web tier | `deploy_web.sh` — no longer blocked; the care marketing pages should be moved out of this repo first, not shipped from it |
+| Rebuild and deploy the web tier | `deploy_web.sh` — no longer blocked. The care pages are gone, so the web build no longer collides on `/` |
 | Ship the frontend half of the WebSocket token change | Server already accepts both forms |
 | Remove the firewall drop for 80/443 | Keep SSH restricted |
 | Verify from outside | Login, live video, an event, a clip, a co-pilot answer |
