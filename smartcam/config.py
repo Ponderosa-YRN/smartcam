@@ -130,9 +130,9 @@ class PrivacyConfig:
     blur_enabled: bool = False
     # "face" blurs detected faces; "body" blurs whole person boxes.
     blur_mode: str = "face"
-    # Encrypt clip/thumbnail files at rest (Fernet). See smartcam.crypto.
-    encrypt_files: bool = False
-    encryption_key: str = ""
+    # There is no encryption-at-rest setting. There used to be a toggle here that did
+    # nothing - smartcam.crypto was never called - and a switch that silently does nothing
+    # is worse than no switch, because it gets promised to a customer.
 
 
 @dataclass

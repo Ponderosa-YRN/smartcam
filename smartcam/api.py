@@ -9,6 +9,7 @@ import hmac
 import logging
 import os
 import re
+import threading
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -60,7 +61,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SmartCam API", version="0.1.0", lifespan=lifespan)
 
-_cors_origins = [o.strip() for o in os.environ.get("SMART_CAM_CORS_ORIGINS", "*").split(",") if o.strip()]
+# No cross-origin access unless it is granted explicitly. In production Caddy serves the app
+# and the API from one origin, so the browser never needs CORS at all - a wildcard default
+# would let any page on the internet drive this API with a token it had obtained.
+_cors_origins = [o.strip() for o in os.environ.get("SMART_CAM_CORS_ORIGINS", "").split(",") if o.strip()]
 # NOTE: CORSMiddleware is registered further down, *after* auth_middleware, on purpose.
 # Starlette applies the most recently added middleware outermost, so adding CORS last
 # keeps it wrapped around auth_middleware. Registered here it would sit inside it, and
@@ -105,6 +109,12 @@ def _login_blocked(key: str) -> bool:
 _SIGNUPS: dict[str, list[float]] = {}
 _SIGNUP_MAX = 5
 _SIGNUP_WINDOW_SEC = 3600.0
+
+# Each MJPEG viewer holds a generator that renders ten frames a second for as long as the
+# tab is open. Without a ceiling, a handful of forgotten tabs pins the API.
+_STREAMS = {"open": 0}
+_STREAM_LOCK = threading.Lock()
+_STREAM_MAX = int(os.environ.get("SMART_CAM_MAX_STREAMS", "20"))
 
 # Ceiling for a single uploaded file, shared by the dashboard upload and device ingest.
 _UPLOAD_MAX_BYTES = 2 * 1024 ** 3
@@ -800,14 +810,24 @@ def stream(request: Request, source_id: str):
     if p is None or not _can_see_source(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
 
+    with _STREAM_LOCK:
+        if _STREAMS["open"] >= _STREAM_MAX:
+            raise HTTPException(status_code=503, detail="too many live viewers, close another tab")
+        _STREAMS["open"] += 1
+
     def gen():
         crlf = b"\x0d\x0a"
-        while True:
-            if p.latest_frame is not None:
-                jpg = frame_to_jpeg_bytes(p.latest_frame)
-                if jpg:
-                    yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
-            _time.sleep(0.1)  # ~10 fps
+        try:
+            while True:
+                if p.latest_frame is not None:
+                    jpg = frame_to_jpeg_bytes(p.latest_frame)
+                    if jpg:
+                        yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
+                _time.sleep(0.1)  # ~10 fps
+        finally:
+            # Runs when the client disconnects, which is the only way this generator ends.
+            with _STREAM_LOCK:
+                _STREAMS["open"] -= 1
 
     return StreamingResponse(gen(), media_type="multipart/x-mixed-replace; boundary=frame")
 
