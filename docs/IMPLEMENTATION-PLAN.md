@@ -91,7 +91,7 @@ between "fixed" and "stays fixed".
 | Task | Detail |
 |---|---|
 | Run the security audit on the VPS | The validators need POSIX; they refuse to run on Windows. This is the only way to reach a certified result |
-| Off-site backups | Nightly `data/` archive (database, config, clips, audit log) to object storage, with a **tested** restore |
+| Off-site backups | `scripts/backup.sh` + `scripts/restore.sh` are written. The database is snapshotted with `VACUUM INTO` so the copy is consistent while the API runs. Still needs: an rclone remote, a cron entry, and one `--check` run against a real archive |
 | Uptime and disk alerting | Disk-full is the most likely way this product dies quietly |
 | Document the restore procedure | Written down and rehearsed once, not imagined |
 | Add `events(tenant_id, start_ts)` index | Every list query needs it once there are real tenants |
