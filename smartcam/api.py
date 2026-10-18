@@ -119,6 +119,16 @@ def _audit(role: str, action: str, detail: str = "") -> None:
         pass
 
 
+def _signup_enabled() -> bool:
+    """Public sign-up is closed unless SMART_CAM_ALLOW_SIGNUP is set.
+
+    Self-serve registration creates a tenant and its first admin from an unauthenticated
+    request, so it is the whole attack surface of the product in one call. Closed by
+    default means an open deployment is an explicit choice, not an accident.
+    """
+    return os.environ.get("SMART_CAM_ALLOW_SIGNUP", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _signup_allowed(request: Request) -> bool:
     host = request.client.host if request.client else "?"
     now = time.time()
@@ -273,6 +283,11 @@ app.add_middleware(
 
 @app.post("/auth/register")
 def register(request: Request, data: dict):
+    if not _signup_enabled():
+        raise HTTPException(
+            status_code=403,
+            detail="Sign-up is closed. Ask an administrator for an invitation.",
+        )
     if not _signup_allowed(request):
         raise HTTPException(status_code=429, detail="Too many signups from this address. Try again later.")
     company = str(data.get("company", "")).strip()

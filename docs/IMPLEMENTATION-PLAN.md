@@ -42,6 +42,7 @@ defaults, consent requirements, pricing and the entire marketing site.
 | Confirm firewall rules are persisted | `grep -c 'INPUT -j DROP' /etc/iptables/rules.{v4,v6}` → both 1 | 5 min |
 | Deploy `e86f64b` (billing, uploads, audit, WS token) | Committed but not running | 20 min |
 | Remove the stale `smartcam-old` container | Keeps the deploy script re-runnable | 2 min |
+| **Close public sign-up** | **Done** — `/auth/register` returns 403 unless `SMART_CAM_ALLOW_SIGNUP` is set. This is what makes a closed beta possible | — |
 
 **Exit criteria:** a reboot does not republish the site, and nothing of value exists on exactly one
 machine.

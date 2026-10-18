@@ -136,6 +136,7 @@ Environment variables:
 | `SMART_CAM_CORS_ORIGINS` | Allowed origins; defaults are permissive — **must be set in production** |
 | `SMART_CAM_CLOUD_ONLY` | Disable the local pipeline (edge-only deployments) |
 | `SMART_CAM_PLATFORM_KEY` | Required to change a tenant's plan |
+| `SMART_CAM_ALLOW_SIGNUP` | Enable public self-serve registration. **Closed unless set** — users are otherwise created by invite only |
 | `COPILOT_API_KEY` / `COPILOT_BASE_URL` / `COPILOT_MODEL` | Co-pilot provider |
 
 **Requirement:** secrets must never be committed, and must never enter an image layer.

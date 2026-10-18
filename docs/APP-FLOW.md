@@ -20,8 +20,13 @@ Describes the real navigation and request flows in the committed frontend and AP
 
 ### 2.1 Self-serve registration — `POST /auth/register`
 
+**Closed by default.** The route returns 403 unless `SMART_CAM_ALLOW_SIGNUP` is set, which makes
+an open deployment an explicit decision. For a closed beta, leave it unset and add users through
+the invite flow (§2.2) instead.
+
 ```
 Visitor → /register
+  → 403 unless SMART_CAM_ALLOW_SIGNUP is set
   → company, username, password
   → 429 if >5 signups from this host in an hour
   → 409 if slug or username taken
