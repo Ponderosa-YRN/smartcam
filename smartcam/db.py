@@ -245,6 +245,15 @@ class EventStore:
                 if col not in self._table_columns(table):
                     self._conn.execute(text(ddl))
                     self._conn.commit()
+            # Tenant is the predicate on nearly every read, and it is always paired with
+            # time. These run after the migrations above because they index a column the
+            # migrations add; building them here reaches existing databases too.
+            for ddl in (
+                "CREATE INDEX IF NOT EXISTS idx_events_tenant_start ON events(tenant_id, start_ts)",
+                "CREATE INDEX IF NOT EXISTS idx_plates_tenant_ts ON plates(tenant_id, ts)",
+            ):
+                self._conn.execute(text(ddl))
+                self._conn.commit()
             self._set_schema_version(LATEST_SCHEMA_VERSION)
             self._conn.commit()
         self.local_tenant_id = self.ensure_default_tenant()
