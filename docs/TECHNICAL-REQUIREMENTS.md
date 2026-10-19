@@ -80,8 +80,11 @@ Three tiers plus an optional edge tier:
   `/api/health`, `/auth/login`, `/auth/refresh`, `/auth/register`, docs endpoints, and
   `/invites/*`.
 - R2 · Passwords hashed with scrypt, never stored or logged in plaintext.
-- R3 · Role checked per route: `admin`, `manager`, `viewer`, `device`. Mutating camera control
-  requires `admin` or `manager`.
+- R3 · Role checked per route. The ladder is `admin` > `manager` > `security` > `viewer`;
+  `device` is a separate token principal, not a role. Camera control and configuration require
+  `admin` or `manager`; triage — acknowledge, resolve, assign, escalate — additionally admits
+  `security`, which is what lets a duty guard act on an alert without being able to reconfigure
+  the system. Every read surface admits any authenticated principal within the tenant.
 - R4 · Tenant identity is taken from the **token**, never from the request path or body.
 - R5 · Any route carrying a resource id must verify that resource belongs to the caller's tenant.
 - R6 · Role and tenant are re-read from the database on every request so revocation is immediate.

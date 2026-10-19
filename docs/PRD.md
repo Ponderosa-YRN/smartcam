@@ -101,7 +101,7 @@ incomplete or unverified; **Stub** = data model only; **Absent** = not started.
 | # | Requirement | Status | Notes |
 |---|---|---|---|
 | A1 | Tenant → site → device hierarchy | Built | |
-| A2 | Roles: admin, manager, viewer, device | Built | |
+| A2 | Roles: admin, security, manager, viewer; device is a separate token principal | Built | `security` is the operational role — triage without configuration |
 | A3 | Per-tenant data isolation | Built | Hardened this session; see §7 |
 | A4 | User management, invites | Built | |
 | A5 | Device enrolment and token rotation | Built | |

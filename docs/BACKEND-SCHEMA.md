@@ -61,7 +61,7 @@ enterprise = unlimited (-1).
 | id | INTEGER PK | |
 | username | TEXT UNIQUE NOT NULL | |
 | password_hash | TEXT NOT NULL | scrypt, `scrypt$…` |
-| role | TEXT NOT NULL DEFAULT 'viewer' | admin / manager / viewer |
+| role | TEXT NOT NULL DEFAULT 'viewer' | admin / security / manager / viewer (see `auth.ROLES`) |
 | created_at | TEXT | |
 | tenant_id | INTEGER | |
 

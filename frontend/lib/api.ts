@@ -405,8 +405,19 @@ export async function listTenants(): Promise<Tenant[]> {
   return request<Tenant[]>("/tenants");
 }
 
-export async function createTenant(slug: string, name: string): Promise<Tenant> {
-  return request<Tenant>("/tenants", { method: "POST", body: JSON.stringify({ slug, name }) });
+export async function createTenant(
+  slug: string,
+  name: string,
+  adminUsername?: string,
+  adminPassword?: string
+): Promise<Tenant> {
+  const body: Record<string, unknown> = { slug, name };
+  // A tenant created without an admin cannot be logged into, so the form collects one.
+  if (adminUsername && adminPassword) {
+    body.admin_username = adminUsername;
+    body.admin_password = adminPassword;
+  }
+  return request<Tenant>("/tenants", { method: "POST", body: JSON.stringify(body) });
 }
 
 // -- invites ------------------------------------------------------------

@@ -39,6 +39,9 @@ export default function AdminPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [slug, setSlug] = useState("");
   const [tname, setTname] = useState("");
+  // A tenant with no admin can never be signed into, so creating one collects the first admin.
+  const [tAdminUser, setTAdminUser] = useState("");
+  const [tAdminPass, setTAdminPass] = useState("");
 
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [username, setUsername] = useState("");
@@ -103,10 +106,12 @@ export default function AdminPage() {
     setError("");
     setMsg("");
     try {
-      await createTenant(slug.trim(), tname.trim() || slug.trim());
-      setMsg("Tenant created");
+      await createTenant(slug.trim(), tname.trim() || slug.trim(), tAdminUser.trim(), tAdminPass);
+      setMsg("Tenant created" + (tAdminUser.trim() ? " with its first admin" : ""));
       setSlug("");
       setTname("");
+      setTAdminUser("");
+      setTAdminPass("");
       reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create tenant");
@@ -262,11 +267,18 @@ export default function AdminPage() {
           <form onSubmit={onAddTenant} className="row card">
             <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="slug (e.g. hotel-a)" required />
             <input value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Display name (optional)" />
+            <input value={tAdminUser} onChange={(e) => setTAdminUser(e.target.value)} placeholder="First admin username" />
+            <input
+              type="password"
+              value={tAdminPass}
+              onChange={(e) => setTAdminPass(e.target.value)}
+              placeholder="First admin password"
+            />
             <button type="submit">Add tenant</button>
           </form>
 
           {tenants.length === 0 ? (
-            <EmptyState title="No tenants yet" hint="Create one above — each hotel is a tenant." />
+            <EmptyState title="No tenants yet" hint="Create one above — each hotel or estate is a tenant. Set a first admin so it can be signed into." />
           ) : (
             <div className="card">
               <table className="table">

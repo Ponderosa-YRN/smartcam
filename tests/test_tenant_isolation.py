@@ -154,6 +154,43 @@ def test_public_registration_is_closed_by_default(world, monkeypatch):
     assert world.store.get_user_by_username("newbie") is None
 
 
+# -- tenant provisioning ---------------------------------------------------
+
+def test_provisioning_creates_the_tenant_and_its_first_admin(world):
+    """A tenant with no admin can never be signed into, so provisioning makes one."""
+    r = world.client.post(
+        "/tenants",
+        headers=auth(world.admin_a_token),
+        json={"slug": "gamma", "name": "Gamma Suites", "admin_username": "gamma_admin", "admin_password": "pw"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    admin = world.store.get_user_by_username("gamma_admin")
+    assert admin is not None
+    assert admin["tenant_id"] == body["id"]
+    assert admin["role"] == "admin"
+
+
+def test_provisioning_rejects_half_an_admin(world):
+    r = world.client.post(
+        "/tenants",
+        headers=auth(world.admin_a_token),
+        json={"slug": "delta", "admin_username": "delta_admin"},
+    )
+    assert r.status_code == 400
+
+
+def test_provisioning_leaves_no_orphan_tenant_when_the_username_is_taken(world):
+    """Validation runs before anything is written, so a rejection creates nothing."""
+    r = world.client.post(
+        "/tenants",
+        headers=auth(world.admin_a_token),
+        json={"slug": "epsilon", "admin_username": "admin_b", "admin_password": "pw"},
+    )
+    assert r.status_code == 409
+    assert world.store.get_tenant_by_slug("epsilon") is None
+
+
 # -- unauthenticated -------------------------------------------------------
 
 def test_a_protected_route_needs_a_token(world):

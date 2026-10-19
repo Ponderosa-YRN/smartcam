@@ -446,8 +446,24 @@ def create_tenant(request: Request, data: dict):
         raise HTTPException(status_code=400, detail="slug is required")
     if _mgr().store.get_tenant_by_slug(slug) is not None:
         raise HTTPException(status_code=409, detail="tenant slug already exists")
+    # A tenant with no admin is a dead end now that self-service sign-up is closed: nobody
+    # can log into it and nobody can be invited into it. The caller may therefore create
+    # the first admin in the same request. This grants no new privilege - creating a tenant
+    # was already open to any admin - and the checks below run before anything is written.
+    admin_username = str(data.get("admin_username", "")).strip()
+    admin_password = str(data.get("admin_password", ""))
+    if bool(admin_username) != bool(admin_password):
+        raise HTTPException(status_code=400, detail="admin_username and admin_password are required together")
+    if admin_username and _mgr().store.get_user_by_username(admin_username) is not None:
+        raise HTTPException(status_code=409, detail="username already exists")
     tid = _mgr().store.create_tenant(slug, name)
-    return {"id": tid, "slug": slug, "name": name}
+    _audit("admin", "tenant.create", f"slug={slug} id={tid}")
+    out = {"id": tid, "slug": slug, "name": name}
+    if admin_username:
+        out["admin_id"] = _mgr().store.create_user(admin_username, hash_password(admin_password), role="admin", tenant_id=tid)
+        out["admin_username"] = admin_username
+        _audit("admin", "user.create", f"user={admin_username} role=admin tenant={tid}")
+    return out
 
 
 @app.delete("/tenants/{tenant_id}")
