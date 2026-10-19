@@ -5,18 +5,32 @@
 # SQLite stops being able to write, and the first symptom anyone notices is that events
 # stopped appearing. Catching it at 85% leaves room to act.
 #
-# Environment:
-#   DISK_ALERT_THRESHOLD  percent that triggers a warning      (default 85)
-#   DISK_ALERT_PATH       filesystem to watch                  (default /)
-#   DISK_ALERT_URL        where to POST the warning, e.g. an ntfy topic URL.
-#                         Leave it unset and the script still logs and exits non-zero.
-#   DISK_ALERT_STATE      file used to avoid repeating daily   (default /var/tmp/smartcam-disk)
+# Credentials are read from an env file rather than the crontab, so the bot token is not
+# sitting in a file that other tools print.
+#
+#   /root/.smartcam-alert.env   (chmod 600)
+#     TELEGRAM_BOT_TOKEN=123456:ABC...
+#     TELEGRAM_CHAT_ID=987654321
+#
+# Other knobs:
+#   DISK_ALERT_THRESHOLD  percent that triggers a warning   (default 85)
+#   DISK_ALERT_PATH       filesystem to watch               (default /)
+#   DISK_ALERT_STATE      marker to avoid repeating daily    (default /var/tmp/smartcam-disk)
 set -euo pipefail
+
+ENV_FILE=${DISK_ALERT_ENV_FILE:-/root/.smartcam-alert.env}
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+fi
 
 THRESHOLD=${DISK_ALERT_THRESHOLD:-85}
 WATCH=${DISK_ALERT_PATH:-/}
-URL=${DISK_ALERT_URL:-}
 STATE=${DISK_ALERT_STATE:-/var/tmp/smartcam-disk}
+TOKEN=${TELEGRAM_BOT_TOKEN:-}
+CHAT=${TELEGRAM_CHAT_ID:-}
 
 usage=$(df -P "$WATCH" | awk 'NR==2 {gsub("%","",$5); print $5}')
 today=$(date +%F)
@@ -42,12 +56,14 @@ msg="SmartCam: disk $WATCH is ${usage}% full (warning at ${THRESHOLD}%), $free f
 
 echo "$(date -Is) $msg"
 
-if [ -n "$URL" ]; then
-  if ! curl -fsS -m 10 -d "$msg" "$URL" >/dev/null; then
-    echo "WARNING: could not deliver the alert to $URL" >&2
+if [ -n "$TOKEN" ] && [ -n "$CHAT" ]; then
+  if ! curl -fsS -m 10 -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
+      --data-urlencode "chat_id=$CHAT" \
+      --data-urlencode "text=$msg" >/dev/null; then
+    echo "WARNING: could not deliver the alert to Telegram" >&2
   fi
 else
-  echo "NOTE: DISK_ALERT_URL is unset, so nothing was sent - only this log entry exists." >&2
+  echo "NOTE: no Telegram credentials in $ENV_FILE, so nothing was sent beyond this log line." >&2
 fi
 
 echo "$today" > "$STATE"
