@@ -409,16 +409,7 @@ export async function createTenant(slug: string, name: string): Promise<Tenant> 
   return request<Tenant>("/tenants", { method: "POST", body: JSON.stringify({ slug, name }) });
 }
 
-// -- invites & registration ---------------------------------------------
-
-export async function register(company: string, username: string, password: string): Promise<{ role: string }> {
-  const data = await request<{ access_token: string; refresh_token: string; role: string }>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ company, username, password }),
-  });
-  setToken(data.access_token);
-  return { role: data.role };
-}
+// -- invites ------------------------------------------------------------
 
 export async function createInvite(tenantId: number, email: string, role: string): Promise<Invite> {
   return request<Invite>("/tenants/" + tenantId + "/invites", { method: "POST", body: JSON.stringify({ email, role }) });

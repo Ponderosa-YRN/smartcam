@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { login } from "@/lib/api";
 
 // Stamped at build time so it is obvious whether the browser is showing a freshly
@@ -80,7 +79,7 @@ export default function LoginPage() {
         </form>
 
         <p className="muted" style={{ marginTop: "1rem", fontSize: ".88rem" }}>
-          New here? <Link href="/register">Create an account</Link>
+          Accounts are created by invitation. Ask whoever manages your site for a link.
         </p>
         <p className="muted" style={{ marginTop: ".6rem", fontSize: ".7rem", opacity: 0.5 }}>
           build {BUILD}
