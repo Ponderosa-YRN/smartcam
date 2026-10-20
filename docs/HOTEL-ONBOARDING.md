@@ -142,3 +142,72 @@ Being clear about this before an incident is worth more than any feature.
 One VPS handles a handful of camera streams — measure, do not guess. The permanent answer at scale is **Path B**: `edge_agent.py` runs detection at the site, buffers locally, and pushes only events and clips upstream, so bandwidth and CPU stop being a per-camera cost on the server.
 
 The agent needs Python and PyTorch on-site, which means a small PC or a Raspberry Pi class box. That is a customer deployment, not a demo.
+
+---
+
+## 10. Hikvision NVR — specifics
+
+### 10.1 The account
+
+In the NVR web interface: **System → User Management → Add**.
+
+Give it **Remote: Live View** (and Playback if they allow). Leave camera configuration, remote configuration and shutdown unchecked. There is no reason for SmartCam to have admin.
+
+Note the username and password exactly. **Passwords with `@ : / ? #` must be URL-encoded** in the RTSP URL — `@` becomes `%40`, `:` becomes `%3A`, `/` becomes `%2F`. A password containing `@` is the single most common cause of "it works in the NVR but not from outside".
+
+### 10.2 The URL
+
+Hikvision uses `/Streaming/Channels/<channel><stream>`, where channel is the camera number and stream is `01` (main) or `02` (sub):
+
+| Camera | Main | Sub |
+|---|---|---|
+| 1 | `rtsp://user:pass@IP:554/Streaming/Channels/101` | `.../102` |
+| 2 | `.../201` | `.../202` |
+| 3 | `.../301` | `.../302` |
+| 12 | `.../1201` | `.../1202` |
+
+RTSP port is 554 by default. If it was changed, **Network → Advanced → Network Port** shows the real one.
+
+### 10.3 Test carefully — lockout is real
+
+**Hikvision locks an account after a handful of failed logins** — typically 5 to 7 attempts, for around 30 minutes, and it tells you only "illegal login". If you spend an afternoon guessing a password, you will lock the account and then nothing works until someone resets it.
+
+So:
+
+1. Test **one** URL in VLC, with the password you believe is correct
+2. If it fails, **stop and check the password with the hotel** rather than trying variants
+3. Confirm the tunnel with `ping` before attempting any RTSP login — a timeout is a network problem, not a password problem, and doesn't count against the lockout
+
+### 10.4 Check the sub-stream is enabled, and its codec
+
+Two settings decide whether this is fast or painful.
+
+**Is the sub-stream on?** Some NVRs ship with it disabled. If `.../102` fails but `.../101` works, that's the cause. Enable it in **Camera → Video/Audio → Sub Stream**, at 704×576 or 1280×720.
+
+**Is it H.264 or H.265?** Newer Hikvision defaults to **H.265**, which costs roughly double the CPU to decode. If the sub-stream is H.265 and the site will run more than two or three cameras, ask to switch it to H.264 — the picture difference at that resolution is negligible and the CPU saving is not.
+
+Note this in your write-up either way; it decides how many cameras that site can run on your server.
+
+### 10.5 Map channels to names before you add them
+
+Channel 1 is whatever camera is plugged into port 1, and it is almost never "the gate".
+
+In the NVR: **Camera Management** shows channel, camera name and IP. Write the mapping down:
+
+| Ch | NVR name | Where it actually points |
+|---|---|---|
+| 1 | | |
+| 2 | | |
+
+Wrong names produce alerts labelled with the wrong place, which loses trust faster than a missing alert. Add two or three cameras first, verify the labels match reality, then add the rest.
+
+### 10.6 Hikvision failure table
+
+| Symptom | Cause |
+|---|---|
+| `401` / "illegal login" | Wrong password, unencoded special character, or the account is locked |
+| Timeout | Tunnel down, wrong IP, or RTSP port not 554 |
+| `101` works, `102` fails | Sub-stream disabled on the NVR |
+| Black or green frames | Wrong channel number, or camera not on that channel |
+| Works, then drops | Hikvision limits concurrent streams per camera (often 6) |
+| Very high CPU | H.265, or you are on the main stream |
