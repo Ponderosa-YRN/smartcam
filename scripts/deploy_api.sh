@@ -45,13 +45,25 @@ git pull --ff-only
 echo "==> saving config.json out of the running container"
 docker cp "$NAME:/app/config.json" "$SAVED" 2>/dev/null || echo "    (no config.json yet - will start from defaults)"
 
-echo "==> building $IMAGE (this takes a few minutes)"
-docker build -f api.Dockerfile -t "$IMAGE" .
+# The full image, not api.Dockerfile. The lean control-plane image carries no PyTorch,
+# OpenCV or ultralytics, so import, camera management, face recognition and re-ID all
+# answer 503 on it by design. Detection has to run somewhere, and for a single-VPS
+# deployment this is where.
+if [ -r /proc/meminfo ]; then
+  avail=$(awk '/MemAvailable/ {printf "%d", $2/1024}' /proc/meminfo)
+  echo "    available memory: ${avail} MB (the build and CPU inference want ~1 GB free)"
+fi
+echo "==> building $IMAGE with the detection pipeline (this takes several minutes)"
+docker build -f Dockerfile -t "$IMAGE" .
 
 ENV_ARGS=()
 while IFS= read -r line; do
   case "$line" in
     SMART_CAM_CONFIG=*) ;;   # replaced below
+    # Dropped deliberately: api.Dockerfile bakes this in, and an inherited container
+    # would otherwise carry it forward forever - rebuilding with the full image while
+    # still running in control-plane mode, which looks like nothing changed.
+    SMART_CAM_CLOUD_ONLY=*) ;;
     "") ;;
     *) ENV_ARGS+=(-e "$line") ;;
   esac
