@@ -1019,10 +1019,13 @@ def add_source(request: Request, data: dict):
     _require_role(request, "admin", "manager")
     from .config import SourceConfig
 
+    # Stamp the caller's tenant. Without this the camera is created with tenant_id None,
+    # which _can_see_source treats as a shared demo feed - so a video one hotel imported
+    # would appear in every other customer's source list.
     src = SourceConfig(
         id=data.get("id", ""), name=data.get("name", ""), uri=data.get("uri", "0"),
         enabled=bool(data.get("enabled", True)), loop=bool(data.get("loop", True)),
-        fast=bool(data.get("fast", False)),
+        fast=bool(data.get("fast", False)), tenant_id=_req_tenant(request),
     )
     return {"id": _mgr().add_source(src)}
 
