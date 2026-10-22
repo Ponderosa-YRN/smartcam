@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { listEvents, listSources, type EventItem } from "@/lib/api";
+import { downloadIncidentReport, listEvents, listSources, type EventItem } from "@/lib/api";
 import { timeAgo, fullTime } from "@/lib/format";
 import ClipPlayer from "@/components/ClipPlayer";
 import EventThumb from "@/components/EventThumb";
@@ -132,8 +132,15 @@ export default function EventsPage() {
                     <td className="muted" title={fullTime(ev.start_ts)}>
                       {timeAgo(ev.start_ts)}
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      <ClipPlayer eventId={ev.id} />
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                      <ClipPlayer eventId={ev.id} />{" "}
+                      <button
+                        className="secondary btn-sm"
+                        title="Download a one-page PDF of this incident"
+                        onClick={() => downloadIncidentReport(ev.id).catch(() => {})}
+                      >
+                        Report
+                      </button>
                     </td>
                   </tr>
                 ))}

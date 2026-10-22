@@ -21,13 +21,21 @@ class Notifier:
     def __init__(self, cfg: NotifyConfig):
         self.cfg = cfg
         self._apprise = None
-        if cfg.apprise_url:
+        # One URL per line. Apprise handles email (mailto://), SMS and push services, so a
+        # hotel can have email to the front desk and a push to the duty manager at once.
+        # Newlines rather than commas: mailto:// legitimately contains comma-separated
+        # recipients, and splitting on those would break it.
+        urls = [u.strip() for u in str(cfg.apprise_url or "").splitlines() if u.strip()]
+        if urls:
             try:
                 import apprise
 
                 self._apprise = apprise.Apprise()
-                if not self._apprise.add(cfg.apprise_url):
-                    log.warning("apprise rejected notification URL")
+                accepted = sum(1 for url in urls if self._apprise.add(url))
+                if accepted == 0:
+                    log.warning("apprise rejected every notification URL")
+                elif accepted < len(urls):
+                    log.warning("apprise accepted %d of %d notification URLs", accepted, len(urls))
             except Exception as exc:  # noqa: BLE001
                 log.warning("apprise unavailable: %s", exc)
 

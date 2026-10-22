@@ -255,6 +255,24 @@ export async function fetchThumbBlob(eventId: number): Promise<Blob> {
   return res.blob();
 }
 
+/** One-page incident PDF, for handing evidence to police, a guest or a residents' body. */
+export async function downloadIncidentReport(eventId: number): Promise<void> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(apiUrl("/api/events/" + eventId + "/report"), { headers });
+  if (!res.ok) throw new Error(res.status + ": " + res.statusText);
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "incident-" + eventId + ".pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoke on the next tick: revoking immediately can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export async function fetchClipBlob(eventId: number): Promise<Blob> {
   const token = getToken();
   const headers: Record<string, string> = {};

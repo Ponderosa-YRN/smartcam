@@ -883,6 +883,37 @@ def thumb(request: Request, event_id: int):
     return FileResponse(p)
 
 
+@app.get("/api/events/{event_id}/report")
+def event_report(request: Request, event_id: int):
+    """One-page incident PDF: the artefact an estate hands to police or a residents' body.
+
+    Tenant-checked through _event_for_tenant, so a wrong id is a 404 like everything else.
+    """
+    from .report_pdf import build_report
+
+    ev = _event_for_tenant(request, event_id)
+    if ev is None:
+        raise HTTPException(status_code=404, detail="event not found")
+
+    thumb_ref = ev.get("thumb_path")
+    local_thumb = None
+    if thumb_ref:
+        storage = get_storage(_mgr().cfg)
+        # S3-backed deployments keep only a reference; the sheet still renders without a frame.
+        if storage.provider != "s3":
+            candidate = Path(thumb_ref)
+            if candidate.exists():
+                local_thumb = str(candidate)
+
+    pdf = build_report(ev, local_thumb)
+    _audit("viewer", "event.report", f"event={event_id}")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="incident-{event_id}.pdf"'},
+    )
+
+
 @app.get("/api/plates")
 def plates(request: Request, limit: int = 100):
     return _mgr().store.list_plates(limit=limit, tenant_id=_req_tenant(request))
@@ -927,7 +958,15 @@ def put_config(request: Request, data: dict):
     _require_role(request, "admin", "manager")
     from .config import save_config
 
+    before = _mgr().cfg
     cfg = config_from_dict(data)
+    # Turning on face recognition or re-ID is an opt-in to processing biometric data, which
+    # the NDPA treats as sensitive personal data. It belongs in the audit trail with a
+    # timestamp, whoever flips the switch.
+    role = getattr(request.state, "user", {}).get("role", "admin")
+    for feature in ("face", "reid"):
+        if getattr(cfg, feature).enabled and not getattr(before, feature).enabled:
+            _audit(role, "biometrics.enabled", f"feature={feature}")
     save_config(cfg)
     return {"ok": True, "restart_required": True}
 

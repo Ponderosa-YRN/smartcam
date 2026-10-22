@@ -154,6 +154,21 @@ def test_public_registration_is_closed_by_default(world, monkeypatch):
     assert world.store.get_user_by_username("newbie") is None
 
 
+# -- incident report -------------------------------------------------------
+
+def test_incident_report_of_another_tenant_is_a_404(world):
+    """The PDF endpoint must inherit the same tenant rule as every other event route."""
+    r = world.client.get("/api/events/" + str(world.ev_b) + "/report", headers=auth(world.admin_a_token))
+    assert r.status_code == 404
+
+
+def test_incident_report_is_a_pdf_for_your_own_event(world):
+    r = world.client.get("/api/events/" + str(world.ev_a) + "/report", headers=auth(world.admin_a_token))
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:5] == b"%PDF-"
+
+
 # -- tenant provisioning ---------------------------------------------------
 
 def test_provisioning_creates_the_tenant_and_its_first_admin(world):
