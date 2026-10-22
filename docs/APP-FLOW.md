@@ -1,202 +1,185 @@
-# App Flow — SmartCam
-
-**Status:** Draft 1 · **Date:** 2026-10-17
-Describes the real navigation and request flows in the committed frontend and API.
+# App Flow Document — SmartCam
+**Version 2.0 · reflects commit `f6b27ea`**
 
 ---
 
 ## 1. Actors
 
-| Actor | Entry point | Lands on |
+| Actor | Entry | Lands on |
 |---|---|---|
-| Anonymous visitor | `/` (marketing site) | Landing page |
-| Prospective customer | `/register` | Tenant created, dashboard |
-| Invited user | `/invite/{token}` | Account created, dashboard |
-| Returning user | `/login` | `/dashboard` |
-| Admin | `/admin` | User and tenant management |
+| Platform operator (you) | API with platform key | Provisions tenants |
+| Hotel / estate admin | `/login` | `/dashboard` |
+| Duty guard (`security`) | `/login` | `/dashboard` → triage |
+| Viewer (owner, association) | `/login` | Read-only |
+| Invited user | `/invite/{token}` | Account created |
 | Edge device | API only | — |
 
-## 2. Entry flows
+**There is no public sign-up.** `/register` was removed; the API route returns 403 unless the env flag is set.
 
-### 2.1 Self-serve registration — `POST /auth/register`
+---
 
-**Closed by default.** The route returns 403 unless `SMART_CAM_ALLOW_SIGNUP` is set, which makes
-an open deployment an explicit decision. For a closed beta, leave it unset and add users through
-the invite flow (§2.2) instead.
+## 2. Onboarding a customer — the operator flow
 
 ```
-Visitor → /register
-  → 403 unless SMART_CAM_ALLOW_SIGNUP is set
-  → company, username, password
-  → 429 if >5 signups from this host in an hour
-  → 409 if slug or username taken
-  → tenant created, admin user created, audit entry written
-  → access + refresh tokens returned
-  → redirected to /dashboard with an empty state
+Admin → Tenants → slug, display name, first admin username + password
+  → tenant created, admin created, both audited
+  → invite the site's staff from Admin → Invites
 ```
 
-No email verification. The tenant works immediately.
+A tenant without an admin is a dead end, so the form collects one.
 
-### 2.2 Invited user — `/invite/{token}`
+---
 
-```
-Admin creates invite (email, role) → token emailed/issued out of band
-  → /invite/{token} preview shows tenant name and assigned role
-  → user sets username + password
-  → account created in the inviting tenant with the invited role
-  → invite marked consumed; re-use returns 400
-```
-
-### 2.3 Login — `POST /auth/login`
+## 3. Staff invite
 
 ```
-/login → username + password
-  → 429 after 8 failures per host+username in 5 minutes
-  → 401 on bad credentials (audit: login.fail)
-  → success: access (12 h) + refresh (30 d), audit: login.ok
-  → /dashboard
+Admin → Invites → pick tenant, email, role → "Send invite"
+  → response contains https://agay.tech/invite/<token>   (nothing is emailed)
+  → you send the link yourself
+  → recipient opens it: "You have been invited to join <tenant> as <role>"
+  → sets username + password → lands in the dashboard
 ```
 
-Token stored in `localStorage`; every request attaches `Authorization: Bearer …`. A 401 mid-session
-bounces to `/login`.
+7-day expiry, single use, revocable. **The link is the credential** — treat it like a password.
 
-## 3. Operator flows
+---
 
-### 3.1 Dashboard — `/dashboard`
-
-Landing surface after login. Shows live event feed, open alerts and inspection counters.
-The feed subscribes to `/ws/events` and prepends new items as they arrive, capped at 15 in view.
-WebSocket authenticated by a `bearer` subprotocol.
+## 4. Adding cameras
 
 ```
-useEffect → token present? → open WS
-   → onmessage: prepend event to the feed
-   → onclose: retry after 4 s unless the component unmounted
+Settings → Cameras → + Add camera → name, stream URL → Save
+  → PUT /api/config returns {"restart_required": true}
+  → docker restart smartcam        ← without this the camera has no pipeline
+  → camera appears as running; Live shows it
 ```
 
-### 3.2 Live view — `/live`
+There is no ONVIF discovery: every camera is a hand-typed RTSP URL, normally the sub-stream
+(`/Streaming/Channels/102` on a Hikvision NVR).
 
-Two paths, chosen by capability:
+---
 
-```
-/live → GET /api/webrtc/config
-   ├─ enabled → WebRTC: WS /ws/webrtc/{source_id} → SDP offer/answer → ICE → <video>
-   └─ disabled → MJPEG: <img src="/api/stream/{source_id}">
-```
-
-Both paths enforce source ownership server-side. A viewer sees only cameras belonging to their
-tenant; cameras with no `tenant_id` are shared demo feeds visible to all.
-
-### 3.3 Alert triage — `/alerts`
-
-The core operational loop:
+## 5. Live view
 
 ```
-Open alert
-  → thumbnail + clip + AI summary + camera + time
-  → user action:
-       Ack      → POST /api/ack/{event_id}       → leaves the open queue
-       Resolve  → POST /api/resolve/{event_id}   → closes with a disposition
-       Assign   → POST /api/assign/{event_id}    → owner recorded
-       Escalate → POST /api/escalate/{event_id}  → flagged upward
-  → every action is tenant-checked; a cross-tenant id returns 404
+/live → GET /api/sources (every 10 s)
+   ├─ Snapshot mode (default): CameraFrame polls /api/frame/{id} every 2 s
+   └─ Realtime mode: /ws/webrtc/{id} → SDP/ICE → <video>
 ```
 
-### 3.4 Event search — `/search` and `/events`
+A failed frame fetch keeps the last image, so a dead camera shows a frozen picture — the health badge
+is what tells the truth.
 
-- `/events` — chronological list, filterable by camera, type, order.
-- `/search` — natural-language or keyword query via `/api/search`, returning matching events with
-  relevance ordering.
+---
 
-### 3.5 Recognition surfaces
-
-| Page | Reads | Writes |
-|---|---|---|
-| `/plates` | `/api/plates` | — |
-| `/faces` | `/api/faces`, `/api/face_matches` | `POST/DELETE /api/faces`, `POST /api/delete_person` |
-| `/track` | `/api/identities`, `/api/sightings/{id}` | `POST/DELETE /api/identities` |
-
-Deleting a person resolves the face **inside the caller's tenant first**, then cascades to
-matches, identity and sightings.
-
-### 3.6 Analytics — `/analytics`
-
-Occupancy history, heatmap and counts: `/api/occupancy_history`, `/api/heatmap/{id}`, `/api/count`.
-
-### 3.7 Import — `/import`
-
-Upload an existing video file for offline analysis: `POST /api/upload` (≤ 2 GiB, whitelisted
-extension) → path returned → registered as a source.
-
-### 3.8 Administration — `/admin`
+## 6. Detecting and triaging
 
 ```
-/auth/users  → list (own tenant only)
-             → create (tenant forced to the caller's; a supplied tenant_id is ignored)
-             → update role / reset password (own tenant only)
-             → delete (own tenant only)
-/tenants/{id}/sites, /devices, /invites → caller's own tenant only; anything else is 404
+Frame → detect + track → zone rules / fall / ALPR / face / re-ID
+  → event written with clip + thumbnail (+ summary when a VLM is configured)
+  → /ws/events pushes it to the caller's tenant
+  → appears in Open alerts and the dashboard feed
 ```
 
-### 3.9 Settings — `/settings`
+Triage actions, each audited and tenant-checked:
 
-Eight tabs: Cameras · Zones · Detection · Alerts & clips · Live video · Storage & privacy ·
-Notifications · Recognition. Reads `GET /api/config`, writes `PUT /api/config`
-(admin/manager only). Camera add/remove live here.
+| Action | Endpoint |
+|---|---|
+| Acknowledge | `POST /api/ack/{id}` |
+| Resolve | `POST /api/resolve/{id}` |
+| Assign | `POST /api/assign/{id}` |
+| Escalate | `POST /api/escalate/{id}` |
 
-### 3.10 Co-pilot — the Vera drawer
+**Evidence hand-off:** Events → **Report** downloads a one-page PDF (camera, time, objects,
+confidence, plate, status, assignee, frame, summary). This is the artefact an estate gives to police
+or a residents' association.
 
-Available throughout the app as a drawer.
+---
 
-```
-Question typed in the drawer
-  → POST /copilot  (Next.js route, NOT /api/* — Caddy sends /api/* to Python)
-  → bearer token checked only for presence
-  → provider resolves from COPILOT_* env, falling back to /api/config
-  → agent loop, max 4 steps, 7 tools:
-       events, alerts, occupancy, plates, faces, identities, config
-  → answer returned with the tool results it was grounded on
-```
-
-**Known weakness:** event `camera_name` and `summary` are device-controlled text that reaches the
-model context, so a compromised edge device could attempt indirect prompt injection.
-
-## 4. Device flow
+## 7. Video import — the one-off assessment
 
 ```
-Admin: POST /tenants/{id}/devices → returns a device token (single display)
-Device on site:
-   → Authorization: Device <token>
-   → POST /device/heartbeat          (liveness, last_seen)
-   → POST /api/ingest/events         (≤500 detections per call)
-   → POST /api/ingest/occupancy      (≤2000 samples per call)
-   → POST /api/ingest/media/{id}     (clip and/or thumbnail)
-Rotation: POST /tenants/{id}/devices/{device_id}/rotate-token bumps the generation, which
-invalidates the previous token immediately.
+/import → choose file, "Import and analyse"
+  → POST /api/upload            (≤2 GiB, whitelisted extension)
+  → POST /api/sources           (camera id "import_<ts>", loop=false, fast=true)
+  → POST /api/start/{id}
+  → polls /api/status/{id} every 1 s and shows frames
+  → on finish: /api/events?camera_id=<import id>
 ```
 
-## 5. Tenant isolation model
+Requires the full pipeline image. On the control-plane image this fails with
+`503 source management is not available in cloud-only mode` — by design, not a bug.
 
-Enforced on four axes, all derived from the token rather than the request:
+---
 
-1. **Events and media** — `_event_for_tenant`; foreign ids return 404.
-2. **Cameras** — `_tenant_can_see_source`; `tenant_id IS NULL` means shared demo feed.
-3. **Tenant-scoped routes** — `_require_own_tenant` on all twelve `/tenants/{id}/…` routes.
-4. **Users and biometrics** — `_require_user_in_tenant`, plus ownership resolution before delete.
+## 8. Co-pilot
 
-Choosing 404 over 403 is deliberate: a wrong-tenant id is indistinguishable from a missing one, so
-the API never confirms that another tenant's record exists.
+```
+Drawer → question → POST /copilot (Next.js route; deliberately not /api/*, which Caddy sends to Python)
+  → bearer token forwarded → provider resolved from COPILOT_* env, else /api/config
+  → agent loop, max 4 steps, 7 tools, every call made with the caller's token
+  → answer cites event numbers and times
+```
 
-## 6. Failure and edge flows
+Device-supplied camera names and summaries are sanitised and length-capped before reaching the model,
+and the system prompt states that tool results are data, never instructions.
+
+---
+
+## 9. Recognition and the consent gate
+
+```
+Settings → Recognition → enable face recognition
+  → PUT /api/config checks privacy.biometrics_consent
+      ├─ absent → 400 with an explanation; nothing is saved
+      └─ present → saved, audited as biometrics.enabled
+  → "restart_required" → restart
+```
+
+Ticking consent alone audits `biometrics.consent` and enables nothing.
+
+---
+
+## 10. Edge deployment
+
+```
+Box at the site: edge_agent.py --api-url https://agay.tech/smartapi --token scd_… --config config.json
+  → runs the pipeline locally against LAN cameras
+  → buffers events in local SQLite (survives uplink loss)
+  → pushes events, clips and occupancy every 15 s
+  → heartbeat keeps the device row fresh
+```
+
+Outbound only: no port forwarding, no tunnel. Remove the same cameras from the cloud config or every
+event is produced twice.
+
+---
+
+## 11. Tenant isolation — the rule everywhere
+
+| Surface | Rule |
+|---|---|
+| Events and media | `_event_for_tenant`; foreign ids are 404 |
+| Cameras | `_tenant_can_see_source`; `tenant_id IS NULL` is a shared demo feed |
+| `/tenants/{id}/…` | `_require_own_tenant` on all twelve routes |
+| Users | `_require_user_in_tenant` |
+| Added cameras | Stamped with the caller's tenant |
+| Occupancy | Aggregated only over the caller's cameras |
+
+404 over 403 is deliberate: the API never confirms another tenant's record exists.
+
+---
+
+## 12. Failure behaviour
 
 | Condition | Behaviour |
 |---|---|
-| Token expired mid-session | 401 → client bounces to `/login` |
-| Role changed or account deleted | Next request 401 — revocation is immediate |
-| API container down | Caddy returns 5xx; the dashboard shows an error state |
-| WebSocket drops | Client retries every 4 s while the component is mounted |
-| AI provider unavailable | Co-pilot returns an error; detection and events are unaffected |
-| Upload exceeds 2 GiB | 413, partial file deleted |
-| Signup flood | 429 after 5 per host per hour |
-| Login brute force | 429 after 8 failures per host+username in 5 minutes |
-| Camera offline | `/api/status` reports health; the pipeline does not crash the API |
+| Token expired | 401 → `/login` |
+| Role changed or account deleted | Next request 401 — immediate |
+| Camera offline | Health badge goes red; last frame stays on screen |
+| Power cut | Recording stops; **nothing alerts** (gap) |
+| Disk >85% | Telegram, once a day |
+| Site not rendering | Telegram within 5 minutes |
+| Whole box down | **Nothing** — the checker lives on the box |
+| Upload >2 GiB | 413, partial file deleted |
+| Biometrics without consent | 400 on save |
+```

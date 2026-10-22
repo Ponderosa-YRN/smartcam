@@ -1,173 +1,107 @@
 # Implementation Plan — SmartCam
-
-**Status:** Draft 1 · **Date:** 2026-10-17
-**Companion documents:** `docs/PRD.md`, `docs/TECHNICAL-REQUIREMENTS.md`, `docs/BACKEND-SCHEMA.md`
+**Version 2.0 · reflects commit `f6b27ea`**
 
 ---
 
-## 1. Where the project actually is
+## 1. Where the product actually is
 
 | Area | State |
 |---|---|
-| Core product | Works end to end: detection, events, triage, search, recognition, live video |
-| Multi-tenant security | Hardened this session; the high-severity gaps are closed |
-| Deployment | Docker on one VPS, Caddy single origin, deploy scripts that survive failure |
-| Site availability | **Deliberately dark** — firewall drops everything but SSH, verified externally |
-| Security audit | **Incomplete** — the mandated validators cannot run on Windows; needs a POSIX host |
-| Billing | Data model only; no payment path |
-| Marketing site | **None.** The care-oriented pages were removed; this product needs its own for hotels and estates |
-| Segment choice | **Decided** — hotels and gated estates. The Canadian care product is a separate repository |
+| Core product | Works end to end: detection, events, triage, PDF evidence, search, recognition, live video, co-pilot |
+| Multi-tenant security | Hardened; 13 regression tests plus a sweep of all 76 HTTP routes |
+| Deployment | One VPS, full pipeline image, Caddy single origin, deploy scripts that survive failure |
+| Monitoring | Disk and site-render checks to Telegram. **Nothing external** |
+| Backups | Nightly database + weekly media. **No off-site copy** |
+| Payment | None. Invoices are manual |
+| Customers | **Zero** |
+| Compliance | Consent gate built; **DPIA, signage, DSR and Nigerian residency all missing** |
 
-**The single most important fact:** the product is further along than the business decision behind
-it. The next phase should be gated on deciding who it is for, because that choice changes privacy
-defaults, consent requirements, pricing and the entire marketing site.
+**The gap is commercial, not technical.** No feature on the list below substitutes for one paying customer.
+
+---
 
 ## 2. Workstreams
 
-| # | Workstream | Blocks |
+| # | Workstream | Gates |
 |---|---|---|
-| W1 | Decide the segment | Everything commercial |
-| W2 | Finish security | Public launch |
-| W3 | Deploy and verify | Anything customer-facing |
-| W4 | Back up irreplaceable work | Nothing — do it now |
-| W5 | Product gaps | Demo credibility |
-| W6 | Payment and plans | Revenue |
-| W7 | Operability | Running paying customers |
+| W1 | Ship the three priority features | Nothing — they are built, just undeployed |
+| W2 | Sell one customer | Everything commercial |
+| W3 | NDPA paperwork | Any claim of compliance |
+| W4 | Off-site backup | Surviving a dead VPS |
+| W5 | External monitoring | Hearing about outages from you, not the customer |
 
-## 3. Phase 0 — stop the bleeding (today, ~1 hour)
+---
 
-| Task | Why | Effort |
+## 3. Phase 0 — deploy what exists (this week)
+
+| Task | Effort | Why |
 |---|---|---|
-| Commit and push the marketing site | It exists only on one disk. Everything else here is recoverable; this is not | 10 min |
-| Confirm firewall rules are persisted | `grep -c 'INPUT -j DROP' /etc/iptables/rules.{v4,v6}` → both 1 | 5 min |
-| Deploy `e86f64b` (billing, uploads, audit, WS token) | Committed but not running | 20 min |
-| Remove the stale `smartcam-old` container | Keeps the deploy script re-runnable | 2 min |
-| **Close public sign-up** | **Done** — `/auth/register` returns 403 unless `SMART_CAM_ALLOW_SIGNUP` is set. This is what makes a closed beta possible | — |
+| Push and deploy `7929219`, `83369e6`, `f6b27ea` | 1 h | The PDF, multi-channel notify and consent gate are built but not live |
+| Confirm the image no longer contains streamlit | 5 min | Proves the unscoped UI cannot run |
+| Finish the off-site backup (rclone remote) | 30 min | The only unrecoverable risk |
+| Ask one hotel for their NVR details | 15 min | Turns tomorrow's visit into a formality |
 
-**Exit criteria:** a reboot does not republish the site, and nothing of value exists on exactly one
-machine.
+---
 
-## 4. Phase 1 — validate the market (1 week, no code)
+## 4. Phase 1 — first customer (weeks 1–3)
 
-The segment is decided: **hotels and gated estates in Nigeria**. What remains unvalidated is the
-buyer and the price, and that still costs no code.
+| Task | Effort | Impact |
+|---|---|---|
+| **WhatsApp or email alerts to a real distribution list** | 2 d | Email already works via apprise; WhatsApp needs a gateway account. Alerts that reach nobody are the product's weakest link |
+| **PDF report styling pass** | 1 d | It leaves the product and lands in front of police and insurers |
+| **Camera-offline alerting** | 2 d | In Nigeria a power cut is the normal case; today it is silent |
+| **Onboard one hotel or estate end to end** | — | The only thing that validates any of this |
 
-- Talk to five prospects. One question: *what did you do the last time something happened on
-  camera?* The answer tells you whether the product solves a felt problem or an imagined one.
-- Ask an estate manager who they report an incident to, and what that report looks like today.
-  That artefact is the thing your event-and-clip history should replace.
-- Price against what they pay today — guards, an installer's maintenance contract, nothing — not
-  against software.
+**Exit criteria:** one site live, one invoice sent, one incident exported as a PDF by the customer.
 
-**Exit criteria:** a named first customer, a named price, and one written artefact the product
-replaces.
+---
 
-**If this phase is skipped, everything after it is guesswork.**
+## 5. Phase 2 — table stakes (weeks 4–8)
 
-## 5. Phase 2 — close the security backlog (3–5 days)
+| Task | Effort | Impact |
+|---|---|---|
+| ONVIF discovery | 5 d | 60 hand-typed URLs is your install cost, and it is per deal |
+| Low-bandwidth mode (sub-stream default, adaptive fps) | 4 d | Unlocks sites on thin uplinks |
+| MFA for admin and manager | 2 d | Removes the most common IT objection |
+| NDPA pack v1: DPIA generator + signage templates | 6 d | Trust signal no local competitor has |
+| Plan limits actually enforced | 2 d | Limits are defined and ignored |
 
-Ordered by risk. All are small.
+---
 
-| # | Item | Where | Effort |
-|---|---|---|---|
-| 2.1 | Restrict CORS to the real origin; it currently defaults to `*` | `api.py:61` | 1 h |
-| 2.2 | Cap concurrent `/api/stream` viewers | `api.py:672-696` | 2 h |
-| 2.3 | Thread the caller's tenant through every write path | `db.py:695-915` | 4 h |
-| 2.4 | Make `privacy.encrypt_files` either work or disappear | `config.py`, `crypto.py` | 4 h or 30 min |
-| 2.5 | Harden the co-pilot against device-controlled text | `frontend/lib/copilot.ts` | 3 h |
-| 2.6 | Add route-level authorization tests | `tests/` | 1 day |
+## 6. Phase 3 — differentiators (weeks 9–12)
 
-**On 2.4:** the lazy and honest option is to delete the toggle and say media is not encrypted at
-rest. A switch that does nothing is worse than no switch, because it creates false confidence in a
-sales conversation.
+| Task | Effort | Impact |
+|---|---|---|
+| Power resilience: edge box recording locally, syncing on recovery | 10 d | The strongest story available in this market |
+| Data residency in Nigeria or an African region | 5 d | Required to make compliance claims honestly |
+| Access control integration (gate relay or partner) | 10 d | Closes the "half a security product" gap |
+| Site-scoped roles for multi-gate estates | 4 d | Enables the group pitch |
 
-**On 2.6:** today no test would fail if the tenant checks were removed. That is the difference
-between "fixed" and "stays fixed".
+---
 
-**Exit criteria:** every row above closed, and a test that fails if a tenant check is deleted.
+## 7. Standing backlog (not scheduled)
 
-## 6. Phase 3 — operate it properly (2–3 days)
+- WebSocket route tests (both handlers loop forever; needs a receive timeout)
+- Certified security audit — must run on the VPS, validators refuse on Windows
+- **AGPL-3.0 resolution** on the detector: licence it, or move to an Apache-2.0 model
+- External uptime monitoring that can report the box being unreachable
+- Daily in/out totals, if a customer asks — needs an entrance line per camera
+- Fire/smoke model, if a customer asks — `docs/FIRE-MODEL-PLAN.md`
 
-| Task | Detail |
-|---|---|
-| Run the security audit on the VPS | The validators need POSIX; they refuse to run on Windows. This is the only way to reach a certified result |
-| Off-site backups | `scripts/backup.sh` + `scripts/restore.sh` are written. The database is snapshotted with `VACUUM INTO` so the copy is consistent while the API runs. Still needs: an rclone remote, a cron entry, and one `--check` run against a real archive |
-| Uptime and disk alerting | Disk-full is the most likely way this product dies quietly |
-| Document the restore procedure | Written down and rehearsed once, not imagined |
-| Add `events(tenant_id, start_ts)` index | Every list query needs it once there are real tenants |
+---
 
-**Exit criteria:** a rehearsed restore from backup, and an alert that fires before disk exhaustion.
-
-## 7. Phase 4 — make the demo undeniable (1–2 weeks)
-
-The product works; the demo is the bottleneck for a 20-customer target.
-
-| Task | Why |
-|---|---|
-| Seed a realistic site: 3 cameras, 24 h of events, known faces, plates | An empty dashboard sells nothing |
-| One-page PDF per incident: event, clip, timeline, summary | This is what a manager forwards to their boss |
-| Onboarding checklist: camera → zone → alert rule → phone | Time-to-first-alert is the metric |
-| Mobile triage view | A manager triages from a phone, not a desk |
-| ~~Remove the legacy Streamlit app~~ | **Done** — `app.py` deleted and streamlit dropped from the image; it had no tenant concept |
-
-**Exit criteria:** a stranger can go from cold to "I understand what this does" in five minutes,
-unassisted.
-
-## 8. Phase 5 — revenue path (1–2 weeks)
-
-| Task | Detail |
-|---|---|
-| Stripe: customers, subscriptions, webhook | `stripe_customer_id` and `stripe_subscription_id` already exist |
-| Enforce plan limits | `max_cameras` is defined but not enforced at camera creation |
-| Trial → paid flow | With a real expiry |
-| Receipts and dunning | Non-optional once money moves |
-
-**Exit criteria:** a customer can pay without you touching anything, and limits actually bind.
-
-## 9. Phase 6 — relaunch (3 days)
-
-| Task | Detail |
-|---|---|
-| Rebuild and deploy the web tier | `deploy_web.sh` — no longer blocked. The care pages are gone, so the web build no longer collides on `/` |
-| Ship the frontend half of the WebSocket token change | Server already accepts both forms |
-| Remove the firewall drop for 80/443 | Keep SSH restricted |
-| Verify from outside | Login, live video, an event, a clip, a co-pilot answer |
-| Watch for 72 hours | Errors, latency, disk |
-
-**Exit criteria:** an external user completes the full loop unaided.
-
-## 10. Sequencing summary
+## 8. Sequencing
 
 ```
-Phase 0  today        ← do not skip; one hour buys back irreplaceable work
-Phase 1  week 1       ← decision, not code. Gates everything commercial
-Phase 2  week 1-2     ← security backlog
-Phase 3  week 2       ← backups, alerting, certified audit
-Phase 4  week 3-4     ← demo quality
-Phase 5  week 4-5     ← payments
-Phase 6  week 5-6     ← relaunch
+Now      deploy, backup remote, NVR details
+Week 1-3 first customer + alerts that reach a phone
+Week 4-8 install cost down, bandwidth, MFA, NDPA pack
+Week 9-12 power resilience, residency, access control
 ```
 
-Two months to twenty customers is achievable **only if Phase 1 does not slip**. Engineering is not
-the constraint; the market decision is.
+---
 
-## 11. Risks to this plan
+## 9. Explicitly not in this plan
 
-| Risk | Mitigation |
-|---|---|
-| Phase 1 skipped, work built for nobody | Treat it as a hard gate with a dated decision |
-| Biometrics prohibited in the target market | Confirm in Phase 1, before building consent flows |
-| Single VPS fails | Phase 3 backups; accept a documented RTO |
-| Security regression after the audit | Phase 2.6 tests |
-| Founder is the only executor | Ruthless sequencing; nothing runs in parallel |
-| The marketing site is lost | Phase 0, today |
-
-## 12. What is explicitly not in this plan
-
-- Multi-region or high availability
-- On-premise packaging and licensing
-- Mobile native apps
-- Additional detection models beyond the current set
-- Postgres migration (available, untested, not needed at this scale)
-
-Each is a real option later. None of them moves a customer this quarter.
+Multi-region, high availability, mobile native apps, SOC 2, on-premise packaging, Postgres migration.
+Each is a real option later; none moves a customer this quarter.

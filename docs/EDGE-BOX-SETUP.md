@@ -49,7 +49,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
-That last step takes a while. If it dies with `Killed», the box is out of RAM — add swap:
+That last step takes a while. If it dies with `Killed`, the box is out of RAM — add swap:
 
 ```bash
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
@@ -61,7 +61,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ## 4. Write the site's config
 
-The box keeps its own `config.json» describing the cameras it can see. These are **local** addresses — the same ones you would type into VLC while standing in their building.
+The box keeps its own `config.json` describing the cameras it can see. These are **local** addresses — the same ones you would type into VLC while standing in their building.
 
 ```bash
 nano /opt/smartcam/config.json
@@ -82,7 +82,7 @@ nano /opt/smartcam/config.json
 }
 ```
 
-Keep `id» short and stable — it appears in the cloud as the camera identity. Use the **sub-stream** (`102» on a Hikvision NVR), not the main stream.
+Keep `id` short and stable — it appears in the cloud as the camera identity. Use the **sub-stream** (`102` on a Hikvision NVR), not the main stream.
 
 Test each URL on the box before going further:
 
@@ -98,7 +98,7 @@ In the cloud dashboard, signed in as an **admin**:
 
 1. **Admin → Devices**
 2. Select the customer's tenant — the device must belong to the tenant whose cameras it reports on
-3. Name it after the site, e.g. `Acacia Hotel — gate box»
+3. Name it after the site, e.g. `Acacia Hotel — gate box`
 4. Create — **the token is shown once.** Copy it now
 
 If it is lost, rotate it in the same panel and update the box. Rotating invalidates the old one immediately.
@@ -116,7 +116,7 @@ cd /opt/smartcam
   --interval 15
 ```
 
-The `/smartapi» suffix matters: Caddy routes that prefix to the API, and the client appends `/api/ingest/...» to whatever you give it.
+The `/smartapi` suffix matters: Caddy routes that prefix to the API, and the client appends `/api/ingest/...` to whatever you give it.
 
 You should see:
 
@@ -155,14 +155,14 @@ sudo systemctl enable --now smartcam-edge
 sudo systemctl status smartcam-edge
 ```
 
-Set the token with `sudo chmod 600 /etc/systemd/system/smartcam-edge.service» afterwards — the unit file holds a credential.
+Set the token with `sudo chmod 600 /etc/systemd/system/smartcam-edge.service` afterwards — the unit file holds a credential.
 
 ---
 
 ## 8. Verify
 
-- [ ] `systemctl status smartcam-edge» shows **active (running)**
-- [ ] `journalctl -u smartcam-edge -n 30» shows `synced N records»
+- [ ] `systemctl status smartcam-edge` shows **active (running)**
+- [ ] `journalctl -u smartcam-edge -n 30` shows `synced N records`
 - [ ] Events appear in the cloud dashboard under the right tenant and camera names
 - [ ] Unplug the box's network for a minute, plug it back — events sync afterwards (the local database is a buffer, not just a cache)
 - [ ] Reboot the box — the service comes back on its own
@@ -181,18 +181,18 @@ After the box is live, remove that camera from the cloud's Settings → Cameras.
 
 | Symptom | Cause |
 |---|---|
-| `synced 0 records» forever | Cameras not producing events, or `uri» wrong — run the OpenCV check from §4 |
-| `401» / `403» in the log | Token wrong, or the device was rotated/deleted |
-| `event ingest failed» | Cannot reach your API — check `curl -sS https://agay.tech/smartapi/api/health» from the box |
+| `synced 0 records` forever | Cameras not producing events, or `uri` wrong — run the OpenCV check from §4 |
+| `401` / `403` in the log | Token wrong, or the device was rotated/deleted |
+| `event ingest failed` | Cannot reach your API — check `curl -sS https://agay.tech/smartapi/api/health` from the box |
 | Events arrive without clips | Media upload failing; check disk space on the box |
 | High CPU, few events | Main stream instead of sub-stream, or too many cameras for the box |
-| Service restarts in a loop | Read `journalctl -u smartcam-edge -n 100» — usually a bad `config.json» |
+| Service restarts in a loop | Read `journalctl -u smartcam-edge -n 100` — usually a bad `config.json` |
 
 ---
 
 ## 11. Security notes
 
 - The box makes **only outbound** connections. Block all inbound traffic on the customer router; nothing needs to reach it.
-- The device token is a credential. It lives in the systemd unit — keep that file `600», and rotate the token if the box is lost or stolen.
+- The device token is a credential. It lives in the systemd unit — keep that file `600`, and rotate the token if the box is lost or stolen.
 - Deleting the device in **Admin → Devices** revokes it immediately; the box's syncs will start failing, which is the intended behaviour.
-- The local `data/» directory holds clips of the customer's premises. Treat the box as sensitive hardware, and wipe it if it is decommissioned.
+- The local `data/` directory holds clips of the customer's premises. Treat the box as sensitive hardware, and wipe it if it is decommissioned.
