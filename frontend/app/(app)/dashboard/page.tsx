@@ -128,6 +128,10 @@ export default function DashboardPage() {
           <div className="big">{occ ? occ.people : "—"}</div>
         </div>
         <div className="card metric">
+          <div className="label">Vehicles on site</div>
+          <div className="big">{occ ? occ.vehicles : "—"}</div>
+        </div>
+        <div className="card metric">
           <div className="label">Events today</div>
           <div className="big">{todayCount}</div>
         </div>
