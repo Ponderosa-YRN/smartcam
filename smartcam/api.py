@@ -953,6 +953,22 @@ def get_config(request: Request):
     return config_to_dict(_mgr().cfg)
 
 
+def _require_biometric_consent(cfg) -> None:
+    """Refuse a config that enables biometrics without an acknowledged lawful basis.
+
+    Under the NDPA, face templates and re-identification embeddings are sensitive personal
+    data. Refusing is deliberate: silently flipping the feature off would leave an operator
+    believing biometrics were running when they were not.
+    """
+    wanted = [f for f in ("face", "reid") if getattr(cfg, f).enabled]
+    if wanted and not cfg.privacy.biometrics_consent:
+        raise HTTPException(
+            status_code=400,
+            detail="Face recognition and re-identification need privacy.biometrics_consent: "
+                   "confirm a lawful basis and signage for biometric processing before enabling them.",
+        )
+
+
 @app.put("/api/config")
 def put_config(request: Request, data: dict):
     _require_role(request, "admin", "manager")
@@ -960,13 +976,16 @@ def put_config(request: Request, data: dict):
 
     before = _mgr().cfg
     cfg = config_from_dict(data)
-    # Turning on face recognition or re-ID is an opt-in to processing biometric data, which
-    # the NDPA treats as sensitive personal data. It belongs in the audit trail with a
-    # timestamp, whoever flips the switch.
     role = getattr(request.state, "user", {}).get("role", "admin")
-    for feature in ("face", "reid"):
-        if getattr(cfg, feature).enabled and not getattr(before, feature).enabled:
+
+    _require_biometric_consent(cfg)
+    wanted = [f for f in ("face", "reid") if getattr(cfg, f).enabled]
+
+    for feature in wanted:
+        if not getattr(before, feature).enabled:
             _audit(role, "biometrics.enabled", f"feature={feature}")
+    if cfg.privacy.biometrics_consent and not before.privacy.biometrics_consent:
+        _audit(role, "biometrics.consent", "lawful basis acknowledged")
     save_config(cfg)
     return {"ok": True, "restart_required": True}
 

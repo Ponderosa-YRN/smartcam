@@ -130,6 +130,11 @@ class PrivacyConfig:
     blur_enabled: bool = False
     # "face" blurs detected faces; "body" blurs whole person boxes.
     blur_mode: str = "face"
+    # Acknowledged lawful basis for biometric processing. Under the NDPA face templates and
+    # re-identification embeddings are sensitive personal data, so enabling either feature
+    # requires this to be true - see put_config. It is not a technical control, it is the
+    # record that somebody with authority said yes.
+    biometrics_consent: bool = False
     # There is no encryption-at-rest setting. There used to be a toggle here that did
     # nothing - smartcam.crypto was never called - and a switch that silently does nothing
     # is worse than no switch, because it gets promised to a customer.

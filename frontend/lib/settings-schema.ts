@@ -170,6 +170,12 @@ export const SECTIONS: Section[] = [
         fields: [
           { path: "privacy.blur_enabled", label: "Blur people in saved clips", kind: "bool" },
           { path: "privacy.blur_mode", label: "What to blur", kind: "select", options: ["face", "all"] },
+          {
+            path: "privacy.biometrics_consent",
+            label: "I confirm this site has a lawful basis and notice for biometrics",
+            kind: "bool",
+            help: "Required before face recognition or re-identification can be enabled. Under the NDPA biometric data is sensitive personal data.",
+          },
         ],
       },
     ],
