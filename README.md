@@ -16,7 +16,7 @@ optional end-to-end encrypted notification path.
   (any OpenAI-compatible endpoint, or local Ollama).
 - **Mobile notifications** — ntfy, Pushover, Telegram, Slack, and dozens more via apprise.
 - **End-to-end encryption** — optional ntfy E2E path (NaCl box, experimental).
-- **Live dashboard** — Streamlit UI for monitoring, clips, search, and settings.
+- **Live dashboard** — Next.js web app (`frontend/`) for monitoring, clips, search, and settings.
 - **Import video for assessment** — upload a video (Import tab) to analyze it once and generate events/clips.
 - **Vehicle plate recognition (ANPR)** — read license plates via EasyOCR (optional), with a searchable plate log and plate on events/notifications.
 
@@ -37,11 +37,12 @@ optional end-to-end encrypted notification path.
                           thumbnails.jpg      (background)      ntfy E2E
           |
           v
-    Streamlit dashboard (reads events + clips)
+    Next.js dashboard (reads events + clips)
 
 ## Project layout
 
-    app.py                    Streamlit dashboard entry point
+    frontend/                 Next.js dashboard (the only UI)
+    run_api.py                API entry point
     smartcam/
       config.py               dataclass config + JSON load/save
       detector.py             YOLOv8 + ByteTrack wrapper
@@ -105,7 +106,8 @@ Secrets can also be provided as environment variables instead of writing them to
 
 Dashboard (web UI):
 
-    .venv\Scripts\python -m streamlit run app.py
+    .venv\Scripts\python run_api.py --port 8000
+    cd frontend && npm install && npm run dev
 
 Headless (detect/record/notify without the UI):
 
@@ -117,8 +119,8 @@ Headless (detect/record/notify without the UI):
     .venv\Scripts\python run_api.py --port 8000
 
     # terminal 2 — dashboard reading from the API
-    set SMART_CAM_API_URL=http://localhost:8000
-    .venv\Scripts\python -m streamlit run app.py
+    set NEXT_PUBLIC_API_URL=http://localhost:8000
+    cd frontend && npm run dev
 
 ## Try it with a demo clip
 
@@ -191,7 +193,7 @@ Summaries run in the background so they never block detection.
   data/audit.log.
 - Dark theme, multi-camera grid view, event filters (date/camera/type), clip
   download, and a browser alert toast + sound.
-- HTTPS — run Streamlit with --server.sslCertFile and --server.sslKeyFile.
+- HTTPS — terminate TLS in a reverse proxy (Caddy in production), not in the app.
 
 ## Notes & limitations
 

@@ -1,4 +1,8 @@
 # SmartCam → Multi-Tenant Web Product
+
+> **Note:** the Streamlit dashboard (`app.py`) was removed. The Next.js app in `frontend/` is the
+> only UI. References to a Streamlit dashboard below are historical.
+
 ## Architecture & Phased Roadmap
 
 **Status:** Proposal (no code changes made yet). Author: engineering. Supersedes nothing; this is the first architecture doc.

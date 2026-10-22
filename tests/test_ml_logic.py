@@ -78,15 +78,6 @@ def test_smart_search():
     s.close()
 
 
-def test_auth():
-    from smartcam.auth import authenticate
-    from smartcam.config import AuthConfig, AuthUser, hash_password
-
-    a = AuthConfig(enabled=True, users=[AuthUser(username="admin", password_hash=hash_password("pw"), role="admin")])
-    assert authenticate(a, "admin", "pw") == "admin"
-    assert authenticate(a, "admin", "wrong") is None
-
-
 def test_occupancy():
     from smartcam.config import AppConfig, SourceConfig
     from smartcam.pipeline import PipelineManager
@@ -99,11 +90,20 @@ def test_occupancy():
             return "healthy"
 
     m = PipelineManager.__new__(PipelineManager)
-    m.cfg = AppConfig(sources=[SourceConfig(id="a", name="A"), SourceConfig(id="b", name="B")])
+    m.cfg = AppConfig(sources=[
+        SourceConfig(id="a", name="A", tenant_id=1),
+        SourceConfig(id="b", name="B", tenant_id=2),
+    ])
     m.pipelines = {"a": FP({"person": 3, "car": 2}), "b": FP({"person": 1, "car": 1, "truck": 1})}
+
     o = m.occupancy()
     assert o["people"] == 4
     assert o["vehicles"] == 4
+
+    # Scoped: the dashboard used to show every tenant's cameras to every caller.
+    assert m.occupancy(tenant_id=1)["people"] == 3
+    assert m.occupancy(tenant_id=2)["people"] == 1
+    assert m.occupancy(tenant_id=99)["people"] == 0
 
 
 def test_zones():

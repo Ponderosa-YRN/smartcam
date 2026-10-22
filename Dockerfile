@@ -3,9 +3,6 @@
 # Build:  docker build -t smartcam .
 # Run:    docker run -p 8000:8000 -v smartcam_data:/app/data smartcam
 # Fly:    fly launch --region lhr   (it builds this image)
-#
-# To run the Streamlit dashboard instead, override the CMD:
-#   docker run ... smartcam python -m streamlit run app.py --server.port=8501 --server.headless=true --server.address=0.0.0.0
 FROM python:3.11-slim
 
 # System libraries OpenCV + video encoding need.

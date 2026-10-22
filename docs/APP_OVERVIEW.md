@@ -1,4 +1,8 @@
 # SmartCam — Product & Technical Overview
+
+> **Note:** the Streamlit dashboard (`app.py`) was removed. The Next.js app in `frontend/` is the
+> only UI. References to a Streamlit dashboard below are historical.
+
 ## A complete bring-you-up-to-speed brief (client-presentation ready)
 
 ---

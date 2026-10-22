@@ -108,7 +108,7 @@ The product works; the demo is the bottleneck for a 20-customer target.
 | One-page PDF per incident: event, clip, timeline, summary | This is what a manager forwards to their boss |
 | Onboarding checklist: camera → zone → alert rule → phone | Time-to-first-alert is the metric |
 | Mobile triage view | A manager triages from a phone, not a desk |
-| Remove or hide the legacy Streamlit app | Two dashboards confuse a buyer and the old one is not tenant-scoped |
+| ~~Remove the legacy Streamlit app~~ | **Done** — `app.py` deleted and streamlit dropped from the image; it had no tenant concept |
 
 **Exit criteria:** a stranger can go from cold to "I understand what this does" in five minutes,
 unassisted.

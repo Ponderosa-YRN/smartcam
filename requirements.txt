@@ -7,7 +7,6 @@
 numpy>=1.26
 pillow>=10.0
 opencv-python>=4.8
-streamlit>=1.57
 ultralytics>=8.3.0
 lap>=0.5.12           # ByteTrack multi-object tracking
 imageio-ffmpeg>=0.5   # bundled ffmpeg for clip writing

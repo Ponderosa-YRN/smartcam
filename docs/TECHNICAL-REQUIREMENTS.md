@@ -45,7 +45,6 @@ Three tiers plus an optional edge tier:
 | Device tokens | `smartcam/secrets.py` | Device identity + generation counter |
 | Billing stub | `smartcam/billing.py` | Plan limits, usage metering |
 | WebRTC | `smartcam/webrtc.py` | aiortc peer connections |
-| Shared UI | `app.py` | Legacy Streamlit dashboard (superseded by Next.js) |
 | Edge agent | `edge_agent.py` | On-site capture and upstream push |
 | Web app | `frontend/` | Next.js 15, React 19, TypeScript |
 | Co-pilot | `frontend/lib/copilot.ts`, `frontend/app/copilot/route.ts` | Provider-agnostic agent loop |
@@ -208,7 +207,6 @@ add at minimum an external uptime check and disk-space alerting.
 ## 12. Technical constraints and debt
 
 1. **Two databases, one schema.** DDL is shared; Postgres support is untested in production.
-2. **Legacy Streamlit app** (`app.py`) duplicates the dashboard and is not tenant-scoped.
 3. **Tenant stamping uses the process tenant**, not the caller, for some write paths.
 4. **Streaming is unbounded** — `/api/stream` holds a worker per viewer indefinitely.
 5. **No migration tool** — migrations are hand-listed in `_column_migrations()`.

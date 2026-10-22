@@ -976,8 +976,8 @@ def count(request: Request):
 
 
 @app.get("/api/occupancy")
-def occupancy():
-    return _mgr().occupancy()
+def occupancy(request: Request):
+    return _mgr().occupancy(tenant_id=_req_tenant(request))
 
 
 @app.get("/api/occupancy_history")

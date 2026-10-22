@@ -1,27 +1,12 @@
-"""Authentication: legacy config-file check + DB-backed user authentication."""
+"""Authentication: DB-backed users, password hashing, first-admin bootstrap."""
 from __future__ import annotations
 
 from typing import Any
 
-from .config import AuthConfig, hash_password as _config_hash
 from .security import hash_password, verify_password
 
 # Roles (keep in sync with the AuthUser.role docstring in config.py).
 ROLES = ("admin", "security", "manager", "viewer")
-
-
-def authenticate(cfg: AuthConfig, username: str, password: str) -> str | None:
-    """Legacy config-file authentication (used before/without a user store).
-
-    Returns the role, or None if invalid. Auth disabled => full access ("admin").
-    """
-    if not cfg.enabled:
-        return "admin"
-    h = _config_hash(password)
-    for u in cfg.users:
-        if u.username == username and u.password_hash == h:
-            return u.role
-    return None
 
 
 def authenticate_user(store: Any, username: str, password: str) -> dict | None:

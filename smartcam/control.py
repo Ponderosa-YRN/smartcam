@@ -28,7 +28,7 @@ class ControlPlaneManager:
         self.jobs = None
         self.cfg.sources = []
 
-    def occupancy(self) -> dict:
+    def occupancy(self, tenant_id: int | None = None) -> dict:
         return {"people": 0, "vehicles": 0, "entered": 0, "left": 0, "cameras": {}}
 
     def add_source(self, source):

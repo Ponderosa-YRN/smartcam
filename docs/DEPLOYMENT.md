@@ -1,5 +1,9 @@
 # SmartCam - live deployment
 
+> **Note:** the Streamlit dashboard (`app.py`) was removed. The Next.js app in `frontend/` is the
+> only UI. References to a Streamlit dashboard below are historical.
+
+
 The whole product runs on one Hostinger VPS behind one domain. No PaaS, no second
 origin, no CORS.
 

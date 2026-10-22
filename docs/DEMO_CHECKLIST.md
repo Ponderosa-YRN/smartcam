@@ -1,5 +1,9 @@
 # SmartCam — Demo Smoke-Test Checklist
 
+> **Note:** the Streamlit dashboard (`app.py`) was removed. The Next.js app in `frontend/` is the
+> only UI. References to a Streamlit dashboard below are historical.
+
+
 Run in order the morning of the presentation. About 15 minutes, and you will have
 personally verified every screen the client will see. The client-facing talking
 points live in docs/PRESENTATION_SCRIPT.md — this is the "what to click and what

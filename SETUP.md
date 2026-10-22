@@ -25,9 +25,10 @@ project), reuse them to skip the big download:
 
 ## 4. Run
 
-    .venv\Scripts\python -m streamlit run app.py
+    .venv\Scripts\python run_api.py --port 8000
+    cd frontend && npm install && npm run dev
 
-Then open the printed URL (usually http://localhost:8501).
+The dashboard opens at http://localhost:3000. The Streamlit dashboard has been removed.
 
 ## 5. Demo clip (optional)
 
@@ -48,4 +49,3 @@ A demo clip is included at demo/demo.avi. To fetch a fresh one:
     .venv\Scripts\python -m pip install easyocr        # license plates (ANPR)
     .venv\Scripts\python -m pip install deepface       # face recognition
     .venv\Scripts\python -m pip install torchreid      # cross-camera ReID
-    .venv\Scripts\python -m pip install streamlit-drawable-canvas  # draw zones

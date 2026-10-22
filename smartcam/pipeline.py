@@ -914,8 +914,13 @@ class PipelineManager:
 
         return _save(cfg or self.cfg)
 
-    def occupancy(self) -> dict:
-        """Count people and vehicles across all cameras (live)."""
+    def occupancy(self, tenant_id: int | None = None) -> dict:
+        """Count people and vehicles across cameras (live).
+
+        tenant_id limits the aggregate to cameras the caller may see: a camera with no
+        tenant is shared, everything else belongs to exactly one tenant. Without it the
+        dashboard showed platform-wide counts to every signed-in user.
+        """
         people = 0
         vehicles = 0
         entered = 0
@@ -923,6 +928,8 @@ class PipelineManager:
         cameras = {}
         vehicle_classes = ("car", "truck", "bus", "motorcycle", "bicycle")
         for s in self.cfg.sources:
+            if tenant_id is not None and s.tenant_id is not None and s.tenant_id != tenant_id:
+                continue
             p = self.pipelines.get(s.id)
             if p is None:
                 continue
