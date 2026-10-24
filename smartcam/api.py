@@ -914,6 +914,47 @@ def event_report(request: Request, event_id: int):
     )
 
 
+# -- restaurant tables -------------------------------------------------
+def _table_rows(tenant: int | None) -> list[dict]:
+    """Live table state across the caller's cameras, one row per table zone."""
+    rows: dict[str, dict] = {}
+    now = time.time()
+    for source_id, pipeline in _mgr().pipelines.items():
+        tracker = getattr(pipeline, "zones", None)
+        if tracker is None:
+            continue
+        for row in tracker.snapshot(now):
+            if not row.get("table"):
+                continue
+            source = row.get("source_id") or source_id
+            if not _tenant_can_see_source(tenant, source):
+                continue
+            # A zone with no source_id is attached to every pipeline, so keep one row only.
+            rows.setdefault(row["id"], {**row, "camera_id": source_id})
+    return sorted(rows.values(), key=lambda r: r["name"])
+
+
+@app.get("/api/tables")
+def tables(request: Request):
+    return _table_rows(_req_tenant(request))
+
+
+@app.post("/api/tables/{zone_id}/serviced")
+def table_serviced(request: Request, zone_id: str):
+    """Staff cleared the table, so restart the wait clock.
+
+    Without this the system can only measure how long a table was occupied, never how long
+    a guest waited - and the wait is the number worth managing.
+    """
+    _require_role(request, "admin", "manager", "security")
+    for pipeline in _mgr().pipelines.values():
+        tracker = getattr(pipeline, "zones", None)
+        if tracker is not None and tracker.serviced(zone_id):
+            _audit(getattr(request.state, "user", {}).get("role", "-"), "table.serviced", f"zone={zone_id}")
+            return {"ok": True}
+    raise HTTPException(status_code=404, detail="table not found")
+
+
 @app.get("/api/plates")
 def plates(request: Request, limit: int = 100):
     return _mgr().store.list_plates(limit=limit, tenant_id=_req_tenant(request))

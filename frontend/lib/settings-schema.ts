@@ -303,6 +303,16 @@ export const ZONE_FIELDS: Field[] = [
   },
   { path: "parking", label: "Parking area", kind: "bool", help: "Count vehicles against a capacity" },
   { path: "capacity", label: "Parking capacity", kind: "number", min: 0, step: 1, help: "0 = off" },
+  { path: "table", label: "Restaurant table", kind: "bool", help: "Track whether this table is seated and for how long" },
+  { path: "seats", label: "Seats at this table", kind: "number", min: 0, step: 1, help: "Shown on the floor view" },
+  {
+    path: "alert_after_sec",
+    label: "Alert waiters after (seconds)",
+    kind: "number",
+    min: 0,
+    step: 30,
+    help: "Seated this long without being marked serviced. 600 = 10 minutes",
+  },
 ];
 
 export function getPath(obj: unknown, path: string): unknown {

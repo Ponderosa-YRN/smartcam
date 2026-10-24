@@ -246,6 +246,28 @@ export async function fetchFrameBlob(sourceId: string): Promise<Blob> {
   return res.blob();
 }
 
+// -- restaurant tables -------------------------------------------------
+
+export type RestaurantTable = {
+  id: string;
+  name: string;
+  camera_id: string;
+  seats: number;
+  occupancy: number;
+  seated: boolean;
+  waiting_sec: number;
+  alert_after_sec: number;
+  flagged: boolean;
+};
+
+export async function listTables(): Promise<RestaurantTable[]> {
+  return request<RestaurantTable[]>("/api/tables");
+}
+
+export async function serviceTable(zoneId: string): Promise<void> {
+  await request<{ ok: boolean }>("/api/tables/" + encodeURIComponent(zoneId) + "/serviced", { method: "POST" });
+}
+
 export async function fetchThumbBlob(eventId: number): Promise<Blob> {
   const token = getToken();
   const headers: Record<string, string> = {};

@@ -37,6 +37,7 @@ export default function AppShell({
         { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
         { href: "/live", label: "Live view", icon: "live" },
         { href: "/alerts", label: "Alerts", icon: "alerts" },
+        { href: "/restaurants", label: "Restaurants", icon: "analytics" },
       ],
     },
     {

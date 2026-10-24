@@ -122,6 +122,13 @@ class ZoneConfig:
     # Parking zone: count vehicles against capacity (metric + full alert).
     parking: bool = False
     capacity: int | None = None
+    # Restaurant table. Tracks whether the table is occupied and how long a party has been
+    # seated, and raises a waiter alert once they have waited longer than alert_after_sec.
+    table: bool = False
+    seats: int = 0
+    # Seconds seated before the table is flagged. Ten minutes by default: long enough that
+    # a normal greeting is not an alert, short enough to act before a guest complains.
+    alert_after_sec: float = 600.0
 
 
 @dataclass
@@ -353,6 +360,7 @@ def _zone_to_dict(z: ZoneConfig) -> dict[str, Any]:
         "max_occupancy": z.max_occupancy, "loiter_sec": z.loiter_sec,
         "restricted": z.restricted, "allowed_window": z.allowed_window,
         "parking": z.parking, "capacity": z.capacity,
+        "table": z.table, "seats": z.seats, "alert_after_sec": z.alert_after_sec,
     }
 
 
@@ -369,6 +377,9 @@ def _zone_from_dict(d: dict[str, Any]) -> ZoneConfig:
         allowed_window=d.get("allowed_window", ""),
         parking=bool(d.get("parking", False)),
         capacity=d.get("capacity"),
+        table=bool(d.get("table", False)),
+        seats=int(d.get("seats") or 0),
+        alert_after_sec=float(d.get("alert_after_sec") or 600.0),
     )
 
 
