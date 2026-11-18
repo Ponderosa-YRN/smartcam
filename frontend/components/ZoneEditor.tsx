@@ -95,20 +95,8 @@ export default function ZoneEditor({
       </div>
 
       <div className="field">
-        <label>Shape — click on the picture to place each corner</label>
-        <div
-          onClick={place}
-          style={{
-            position: "relative",
-            width: "100%",
-            aspectRatio: String(aspect),
-            background: "#000",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            overflow: "hidden",
-            cursor: "crosshair",
-          }}
-        >
+        <label>Shape — click to place a corner; three or more close the shape</label>
+        <div className="zone-surface" onClick={place} style={{ aspectRatio: String(aspect) }}>
           {frameUrl ? (
             <img
               src={frameUrl}
@@ -117,44 +105,46 @@ export default function ZoneEditor({
                 const t = e.currentTarget;
                 if (t.naturalWidth) setAspect(t.naturalWidth / t.naturalHeight);
               }}
-              style={{ width: "100%", height: "100%", display: "block", objectFit: "fill" }}
             />
           ) : (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "grid",
-                placeItems: "center",
-                padding: "1rem",
-                textAlign: "center",
-                color: "var(--text-dim)",
-                fontSize: ".85rem",
-              }}
-            >
-              No picture from this camera yet. You can still place points — they will sit on
+            <div className="zone-empty">
+              No picture from this camera yet. You can still place corners — they will sit on
               the frame once it starts.
             </div>
           )}
+
+          <div className="zone-grid" />
+          <div className="zone-scrim" />
 
           <svg
             viewBox="0 0 1 1"
             preserveAspectRatio="none"
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
           >
+            {/* Dashed guide while placing, so two corners already show a direction. */}
             {points.length > 1 && (
-              <polygon
+              <polyline
+                className="zone-path"
                 points={points.map((p) => p[0] + "," + p[1]).join(" ")}
-                fill="rgba(59,130,246,.28)"
-                stroke="#3b82f6"
-                strokeWidth="2"
                 vectorEffect="non-scaling-stroke"
               />
             )}
-            {points.map((p, i) => (
-              <circle key={i} cx={p[0]} cy={p[1]} r="0.012" fill="#fff" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-            ))}
+            {points.length > 2 && (
+              <polygon
+                className="zone-shape"
+                points={points.map((p) => p[0] + "," + p[1]).join(" ")}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
           </svg>
+
+          {points.map((p, i) => (
+            <span
+              key={i}
+              className="zone-vertex-dot"
+              style={{ left: (p[0] * 100).toFixed(2) + "%", top: (p[1] * 100).toFixed(2) + "%" }}
+            />
+          ))}
         </div>
 
         <div className="row" style={{ margin: ".6rem 0 0" }}>

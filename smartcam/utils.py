@@ -1,7 +1,6 @@
 """Shared helpers."""
 from __future__ import annotations
 
-import hashlib
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -59,37 +58,70 @@ def save_thumbnail(frame: np.ndarray, path: str | Path, max_width: int = 640) ->
     return p
 
 
-def class_color(label: str) -> tuple[int, int, int]:
-    """Deterministic BGR color for a class label."""
-    h = int(hashlib.md5(label.encode()).hexdigest(), 16)
-    return (h % 256, (h >> 8) % 256, (h >> 16) % 256)
+# One accent for every object. A per-class random colour made a crowded scene look like a
+# chart legend and changed from run to run; a single tint reads as instrumentation.
+ACCENT = (235, 150, 60)   # BGR — the brand blue
+SHADOW = (14, 16, 22)     # near-black, for translucent label backing
+
+
+def _pill(img: np.ndarray, x: int, y: int, w: int, h: int, color, alpha: float = 0.66) -> None:
+    """Semi-transparent backing so text stays readable on any frame, light or dark."""
+    import cv2
+
+    ih, iw = img.shape[:2]
+    x1, y1 = max(0, x), max(0, y)
+    x2, y2 = min(iw, x + w), min(ih, y + h)
+    if x2 <= x1 or y2 <= y1:
+        return
+    roi = img[y1:y2, x1:x2]
+    overlay = np.full_like(roi, color)
+    cv2.addWeighted(overlay, alpha, roi, 1 - alpha, 0, roi)
+
+
+def _corners(img: np.ndarray, x1: int, y1: int, x2: int, y2: int, color, thickness: int = 2) -> None:
+    """Four corner brackets rather than a full rectangle.
+
+    The extent of the box is still obvious but the frame is not boxed in, and the eye is
+    drawn to corners instead of to a wall of outlines.
+    """
+    import cv2
+
+    length = max(10, min(28, int(min(x2 - x1, y2 - y1) * 0.22)))
+    for cx, cy, dx, dy in ((x1, y1, 1, 1), (x2, y1, -1, 1), (x1, y2, 1, -1), (x2, y2, -1, -1)):
+        cv2.line(img, (cx, cy), (cx + dx * length, cy), color, thickness, cv2.LINE_AA)
+        cv2.line(img, (cx, cy), (cx, cy + dy * length), color, thickness, cv2.LINE_AA)
 
 
 def draw_detections(frame: np.ndarray, detections, names: dict[int, str] | None = None) -> np.ndarray:
-    """Draw boxes/labels for a list of Detection objects (BGR frame)."""
+    """Draw detections for display (BGR frame)."""
     import cv2
 
     img = frame.copy()
     for d in detections:
         x1, y1, x2, y2 = [int(v) for v in d.xyxy]
-        color = class_color(d.label)
-        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
-        tid = f"#{d.track_id}" if d.track_id is not None else ""
-        text = f"{d.label}{tid} {d.conf:.2f}"
-        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(img, (x1, y1 - th - 6), (x1 + tw + 4, y1), color, -1)
-        cv2.putText(img, text, (x1 + 2, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        _corners(img, x1, y1, x2, y2, ACCENT)
+        tid = f" #{d.track_id}" if d.track_id is not None else ""
+        text = f"{d.label}{tid}  {d.conf:.2f}"
+        (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+        ty = y1 - th - 8
+        if ty < 0:
+            ty = y1 + 2
+        _pill(img, x1, ty, tw + 12, th + 8, SHADOW)
+        cv2.putText(img, text, (x1 + 6, ty + th + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1, cv2.LINE_AA)
     return img
 
 
 def draw_timestamp(frame: np.ndarray, text: str = "") -> np.ndarray:
+    """Timestamp in a small translucent pill, bottom-left. No full-width black bar."""
     import cv2
 
     img = frame.copy()
     label = text or ts_to_iso(now_ts())
     h, w = img.shape[:2]
-    cv2.rectangle(img, (0, h - 28), (min(280, w), h), (0, 0, 0), -1)
-    cv2.putText(img, label, (8, h - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    x, y = 8, h - th - 12
+    _pill(img, x, y, tw + 12, th + 8, SHADOW, 0.6)
+    cv2.putText(img, label, (x + 6, y + th + 2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
     return img
 
 

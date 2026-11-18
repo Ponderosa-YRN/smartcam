@@ -460,3 +460,89 @@ input[type="file"] {
   .tabbar a.active { color: var(--brand); }
   .tabbar a .ico { display: block; font-size: 1.05rem; margin-bottom: .1rem; }
 }
+
+/* ==========================================================================
+   Zone editor — the drawing surface for camera zones
+   The overlay has to read clearly on top of an unknown photograph, so it uses
+   a hairline stroke and a soft fill rather than a saturated block of colour.
+   ========================================================================== */
+.zone-surface {
+  position: relative;
+  width: 100%;
+  background: #05070c;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.zone-surface img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+}
+
+/* Faint grid: makes the surface read as a tool, and gives the eye a scale. */
+.zone-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .18;
+  background-image:
+    linear-gradient(to right, var(--border-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-strong) 1px, transparent 1px);
+  background-size: 12.5% 12.5%;
+}
+
+/* Vignette: keeps the shape legible over a bright or busy frame. */
+.zone-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 40%, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, .42) 100%);
+}
+
+.zone-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: .85rem;
+}
+
+/* Live preview while placing corners. */
+.zone-path {
+  fill: none;
+  stroke: rgba(59, 130, 246, .6);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The closed shape. Soft fill, hairline stroke, rounded joints. */
+.zone-shape {
+  fill: rgba(59, 130, 246, .14);
+  stroke: rgba(59, 130, 246, .95);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* Vertices are HTML, not SVG: the SVG viewBox is stretched to the frame's aspect
+   ratio, so a circle drawn inside it comes out as an ellipse. */
+.zone-vertex-dot {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--brand);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .45);
+  pointer-events: none;
+}
+
