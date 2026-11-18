@@ -6,6 +6,8 @@ import PageHead from "@/components/PageHead";
 import EmptyState from "@/components/EmptyState";
 
 const POLL_MS = 5000;
+// Two missed polls and the display is no longer trustworthy.
+const STALE_AFTER_SEC = 15;
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -60,10 +62,14 @@ export default function RestaurantsPage() {
     }
   }
 
-  const drift = fetchedAt ? (Date.now() - fetchedAt) / 1000 : 0;
+  // If the server stops answering, the clock must stop with it: advancing a timer on no data
+  // would show a table "waiting 12:30" when the system has no idea what is happening.
+  const fetchedAgeSec = fetchedAt ? (Date.now() - fetchedAt) / 1000 : 0;
+  const stale = fetchedAt > 0 && fetchedAgeSec > STALE_AFTER_SEC;
+  const drift = stale ? 0 : fetchedAgeSec;
   const seatedCount = tables.filter((t) => t.seated).length;
+  // Threshold is per table, so the header counts waiting tables without claiming a time.
   const flaggedCount = tables.filter((t) => t.flagged).length;
-  const thresholdMin = Math.round((tables[0]?.alert_after_sec ?? 600) / 60);
 
   return (
     <main>
@@ -73,11 +79,18 @@ export default function RestaurantsPage() {
           tables.length === 0
             ? "No tables configured."
             : seatedCount + " of " + tables.length + " tables seated" +
-              (flaggedCount ? " · " + flaggedCount + " waiting over " + thresholdMin + " min" : "")
+              (flaggedCount ? " · " + flaggedCount + " waiting for attention" : "")
         }
       />
 
       {error && <div className="alert-error">{error}</div>}
+
+      {stale && (
+        <div className="alert-error">
+          Showing the last known state — the server has not answered for{" "}
+          {Math.round(fetchedAgeSec)}s, so the timers are frozen.
+        </div>
+      )}
 
       {loaded && tables.length === 0 && (
         <EmptyState

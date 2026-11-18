@@ -947,9 +947,20 @@ def table_serviced(request: Request, zone_id: str):
     a guest waited - and the wait is the number worth managing.
     """
     _require_role(request, "admin", "manager", "security")
-    for pipeline in _mgr().pipelines.values():
+    tenant = _req_tenant(request)
+    now = time.time()
+    for source_id, pipeline in _mgr().pipelines.items():
         tracker = getattr(pipeline, "zones", None)
-        if tracker is not None and tracker.serviced(zone_id):
+        if tracker is None:
+            continue
+        for row in tracker.snapshot(now):
+            if row["id"] != zone_id or not row.get("table"):
+                continue
+            # Same rule as the read path: a table on somebody else's camera is a 404, so the
+            # API never confirms another tenant's zone exists and cannot be reset by them.
+            if not _tenant_can_see_source(tenant, row.get("source_id") or source_id):
+                raise HTTPException(status_code=404, detail="table not found")
+            tracker.serviced(zone_id)
             _audit(getattr(request.state, "user", {}).get("role", "-"), "table.serviced", f"zone={zone_id}")
             return {"ok": True}
     raise HTTPException(status_code=404, detail="table not found")
@@ -1020,6 +1031,15 @@ def put_config(request: Request, data: dict):
     role = getattr(request.state, "user", {}).get("role", "admin")
 
     _require_biometric_consent(cfg)
+
+    # Zones are identified by id everywhere - the table floor view keys on it, and a duplicate
+    # is silently deduplicated at read time so one table would simply never appear.
+    seen_zones: set[str] = set()
+    for zone in cfg.zones:
+        if zone.id in seen_zones:
+            raise HTTPException(status_code=400, detail=f"duplicate zone id: {zone.id}")
+        seen_zones.add(zone.id)
+
     wanted = [f for f in ("face", "reid") if getattr(cfg, f).enabled]
 
     for feature in wanted:
