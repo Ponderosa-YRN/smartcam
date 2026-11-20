@@ -91,3 +91,43 @@ def test_refuses_an_unknown_camera(world):
 def test_needs_a_token(world):
     r = world.client.get("/api/stream-token/cam-a")
     assert r.status_code in (401, 403)
+
+
+def bare_request(query: str):
+    """A request like the one an <img> tag makes: no Authorization header."""
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/api/stream/cam-a",
+        "headers": [],
+        "query_string": query.encode(),
+    }
+    return Request(scope)
+
+
+def mint_query(world, source_id: str) -> str:
+    r = world.client.get("/api/stream-token/" + source_id, headers=auth(world.admin_a))
+    assert r.status_code == 200
+    return r.json()["path"].split("?t=", 1)[1]
+
+
+def test_a_query_token_authorises_a_request_with_no_header(world):
+    """The bug this covers: the middleware used to 401 the <img> request first."""
+    tok = mint_query(world, "cam-a")
+    assert api_mod._stream_authorised(bare_request("t=" + tok), "cam-a") is True
+
+
+def test_a_query_token_is_scoped_to_its_own_camera(world):
+    tok = mint_query(world, "cam-a")
+    assert api_mod._stream_authorised(bare_request("t=" + tok), "cam-b") is False
+
+
+def test_no_token_means_no_stream(world):
+    assert api_mod._stream_authorised(bare_request(""), "cam-a") is False
+
+
+def test_a_garbage_token_means_no_stream(world):
+    assert api_mod._stream_authorised(bare_request("t=not-a-real-token"), "cam-a") is False
+

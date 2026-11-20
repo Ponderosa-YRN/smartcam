@@ -255,7 +255,13 @@ def _resolve_device(request: Request) -> dict | None:
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    if path in _PUBLIC_PATHS or path.startswith("/invites/") or request.method == "OPTIONS":
+    # /api/stream/ authorises itself from a query-string token, because an <img> tag cannot
+    # send an Authorization header. Everything else still needs the bearer token.
+    if (
+        path in _PUBLIC_PATHS
+        or path.startswith(("/invites/", "/api/stream/"))
+        or request.method == "OPTIONS"
+    ):
         return await call_next(request)
     header = request.headers.get("authorization", "")
     token = header[7:].strip() if header.lower().startswith("bearer ") else ""
@@ -842,7 +848,9 @@ def _stream_token(source_id: str, tenant: int | None) -> str:
 
 def _stream_authorised(request: Request, source_id: str) -> bool:
     """Bearer header (normal API call) or a ?t= token minted for this one camera."""
-    if _can_see_source(request, source_id):
+    # The middleware lets /api/stream/ through without a header, so state.user is absent
+    # for the <img> case and only the query token can authorise it.
+    if getattr(request.state, "user", None) is not None and _can_see_source(request, source_id):
         return True
     tok = request.query_params.get("t", "")
     if not tok:
