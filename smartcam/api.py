@@ -781,6 +781,13 @@ def sources(request: Request):
             "health": p.health() if p else "unknown",
             # What the pipeline actually produces, as opposed to what the camera sends.
             "fps": round(float(p.stats.get("fps") or 0.0), 1) if p else 0.0,
+            # Size of the last streamed frame, so a slow live view can be diagnosed as
+            # bandwidth (big frames) or processing (low fps) without guessing.
+            "stream_kb": round(
+                len(_JPG_CACHE[(s.id, _STREAM_MAX_WIDTH, _STREAM_JPEG_QUALITY)][1]) / 1024.0, 1
+            )
+            if (s.id, _STREAM_MAX_WIDTH, _STREAM_JPEG_QUALITY) in _JPG_CACHE
+            else 0.0,
         })
     return out
 
@@ -825,22 +832,37 @@ def frame(request: Request, source_id: str):
 
 
 _STREAM_TOKEN_MAX_AGE = 600  # seconds; long enough for a viewing session, short enough to matter
-_JPG_CACHE: dict[str, tuple[int, bytes]] = {}
+# The live view is watched, not measured: a 960x1080 JPEG at quality 80 is roughly 200 KB,
+# which is several Mbps per viewer at a few frames a second - more than a hotel uplink can
+# spare. Evidence frames (clips, PDFs, /api/frame) keep full resolution and quality.
+_STREAM_MAX_WIDTH = 768
+_STREAM_JPEG_QUALITY = 70
+_JPG_CACHE: dict[tuple[str, int, int], tuple[int, bytes]] = {}
 
 
-def _cached_jpeg(source_id: str, pipeline) -> bytes:
+def _cached_jpeg(source_id: str, pipeline, max_width: int = 0, quality: int = 80) -> bytes:
     """Encode a frame once per published frame, however many viewers are watching.
 
     Without the cache every open live view re-encodes the same picture; ten viewers would
-    cost ten times the CPU for one image.
+    cost ten times the CPU and ten times the bandwidth for one image.
     """
-    key = int(pipeline.stats.get("frames") or 0)
-    hit = _JPG_CACHE.get(source_id)
-    if hit is not None and hit[0] == key and hit[1]:
+    import cv2
+
+    cache_key = (source_id, max_width, quality)
+    frame_key = int(pipeline.stats.get("frames") or 0)
+    hit = _JPG_CACHE.get(cache_key)
+    if hit is not None and hit[0] == frame_key and hit[1]:
         return hit[1]
-    jpg = frame_to_jpeg_bytes(pipeline.latest_frame)
+
+    frame = pipeline.latest_frame
+    if max_width and frame.shape[1] > max_width:
+        scale = max_width / float(frame.shape[1])
+        frame = cv2.resize(
+            frame, (max_width, max(1, int(frame.shape[0] * scale))), interpolation=cv2.INTER_AREA
+        )
+    jpg = frame_to_jpeg_bytes(frame, quality)
     if jpg:
-        _JPG_CACHE[source_id] = (key, jpg)
+        _JPG_CACHE[cache_key] = (frame_key, jpg)
     return jpg
 
 
@@ -900,7 +922,9 @@ def stream(request: Request, source_id: str):
                 # bandwidth spent on frames the viewer already has.
                 key = int(p.stats.get("frames") or 0)
                 if key != last_sent and p.latest_frame is not None:
-                    jpg = _cached_jpeg(source_id, p)
+                    jpg = _cached_jpeg(
+                        source_id, p, max_width=_STREAM_MAX_WIDTH, quality=_STREAM_JPEG_QUALITY
+                    )
                     if jpg:
                         last_sent = key
                         yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
