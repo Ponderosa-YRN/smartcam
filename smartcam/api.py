@@ -114,7 +114,10 @@ _SIGNUP_WINDOW_SEC = 3600.0
 # tab is open. Without a ceiling, a handful of forgotten tabs pins the API.
 _STREAMS = {"open": 0}
 _STREAM_LOCK = threading.Lock()
-_STREAM_MAX = int(os.environ.get("SMART_CAM_MAX_STREAMS", "20"))
+# Each camera tile holds one connection per open tab, and a dashboard watching eight
+# cameras in two tabs is sixteen before anybody else looks. Frames are shared between
+# viewers now, so the real ceiling is sockets, not CPU.
+_STREAM_MAX = int(os.environ.get("SMART_CAM_MAX_STREAMS", "64"))
 
 # Ceiling for a single uploaded file, shared by the dashboard upload and device ingest.
 _UPLOAD_MAX_BYTES = 2 * 1024 ** 3
