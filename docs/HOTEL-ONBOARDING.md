@@ -211,3 +211,55 @@ Wrong names produce alerts labelled with the wrong place, which loses trust fast
 | Black or green frames | Wrong channel number, or camera not on that channel |
 | Works, then drops | Hikvision limits concurrent streams per camera (often 6) |
 | Very high CPU | H.265, or you are on the main stream |
+### 10.7 A verified install — DS-7232GHI-K2 on firmware V4.30
+
+These are the values that worked end to end on a real hotel DVR, measured rather than assumed.
+Copy them for the next Hikvision site and change only the addresses.
+
+**On the DVR**
+
+| Setting | Path | Value |
+|---|---|---|
+| Address | Network → **General → TCP/IP** | DHCP **off**; IPv4 fixed, mask /24, gateway .1 |
+| RTSP port | Network → **More Settings** | **554** — that tab is where it lives on V4.30, not "Advanced" |
+| HTTP / server | Network → More Settings | 80 / 8000 |
+| Output Bandwidth Limit | Network → More Settings | **leave unticked** — it caps the whole DVR's egress |
+| Encoding | Camera → Video/Audio → Main Stream | **H.264**, 960×1080, 15 fps, 4096 Kbps |
+| Sub-stream | Camera → Video/Audio → Sub Stream | left at CIF — **do not use it**, see below |
+| Account | System → User Management | read-only operator, Remote: Live View only |
+
+**On the server**
+
+| Step | Value |
+|---|---|
+| Stream URL | `rtsp://USER:PASS@DVR-IP:554/Streaming/Channels/101` |
+| Transport | TCP — the default since `46e3e34`; no environment variable needed |
+| Save | Settings page → **Save changes** at the bottom, then `docker restart smartcam` |
+
+**Measured on a 4 vCPU / 16 GB VPS**
+
+| Metric | Value |
+|---|---|
+| Resolution received | 960×1080 |
+| CPU, one camera, light scene | **9.5%** |
+| Memory | ~620 MB |
+
+At that cost the box holds roughly 8–10 cameras on a quiet scene, fewer when the scene is busy.
+Measure again with real footfall before quoting a number to a hotel.
+
+**The four things that cost time, in order**
+
+1. **DHCP moved the DVR** from `.53` to `.7` between visits, so the configured URL pointed at a
+   different device that refused port 554. Disable DHCP on every device you touch.
+2. **The sub-stream was CIF 352×288.** A person is about 25 px tall at 15 m — YOLO cannot detect
+   that. Use the main stream.
+3. **H.265 defaults on.** It doubles decode cost and over a tunnel produces `hevc` PPS/POC errors
+   and dropped frames. Set H.264 on every channel used.
+4. **The Settings page has one page-level Save.** Adding a camera row does nothing until
+   **Save changes** is pressed and reads `Saved`.
+
+**Watching for silent failure**
+
+A crashing camera shows no error. `docker stats` near 0% with a camera configured means no stream
+is being decoded; check `docker logs` for `crashed` (added in `60dbd57`).
+
