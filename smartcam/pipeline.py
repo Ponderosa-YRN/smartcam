@@ -12,6 +12,7 @@ import logging
 import queue
 import threading
 import time
+import traceback
 from collections import deque
 from pathlib import Path
 from typing import Any
@@ -116,8 +117,24 @@ class CameraPipeline:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._run, name=f"pipeline-{self.source.id}", daemon=True)
+        self._thread = threading.Thread(target=self._run_guarded, name=f"pipeline-{self.source.id}", daemon=True)
         self._thread.start()
+
+    def _run_guarded(self):
+        """Run the pipeline, recording why it stopped.
+
+        Without this the supervisor only ever says "thread died; restarting", which tells an
+        operator that a camera is broken but never why - the traceback went to a bare thread
+        death and was lost.
+        """
+        try:
+            self._run()
+        except BaseException:
+            log.exception("pipeline %s crashed", self.source.id)
+            self.stats["status"] = "error"
+            self.stats["last_error"] = traceback.format_exc(limit=6)
+            self._running = False
+            raise
 
     def stop(self):
         self._running = False
