@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { fetchFrameBlob } from "@/lib/api";
+
+// How often to ask for a new frame. The pipeline publishes several frames a second, so
+// polling every two seconds is what made movement look like a slideshow.
+const FRAME_MS = 250;
 
 function healthTone(health: string): "ok" | "warn" | "danger" | undefined {
   const h = (health || "").toLowerCase();
@@ -21,12 +25,13 @@ export default function CameraFrame({
   health: string;
 }) {
   const [url, setUrl] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let handle: ReturnType<typeof setTimeout> | null = null;
 
     async function poll() {
+      const started = Date.now();
       try {
         const blob = await fetchFrameBlob(sourceId);
         if (cancelled) return;
@@ -37,13 +42,16 @@ export default function CameraFrame({
       } catch {
         // frame may be unavailable (camera stopped) - keep the last frame
       }
+      if (cancelled) return;
+      // Scheduled from completion, not from the start: on a slow link an interval would
+      // queue requests faster than they complete and the picture would fall behind.
+      handle = setTimeout(poll, Math.max(0, FRAME_MS - (Date.now() - started)));
     }
 
     poll();
-    timer.current = setInterval(poll, 2000);
     return () => {
       cancelled = true;
-      if (timer.current) clearInterval(timer.current);
+      if (handle) clearTimeout(handle);
       setUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
