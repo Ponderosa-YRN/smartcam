@@ -122,7 +122,9 @@ done
 
 # Reported, but NOT fatal: the site is deliberately firewalled while it is dark, and an
 # unreachable public URL says nothing about the container itself.
-api=$(curl -s -o /dev/null -w '%{http_code}' https://agay.tech/api/health || true)
+# The public path carries the /smartapi prefix that Caddy strips; probing /api/health hits
+# the web tier and returns 404, which reads like a failed deploy when nothing is wrong.
+api=$(curl -s -o /dev/null -w '%{http_code}' https://agay.tech/smartapi/api/health || true)
 
 # Prove the NEW code is actually running. Nine bad logins for a throwaway username must
 # end in 429; the old image would keep answering 401 forever. The throttle key is
