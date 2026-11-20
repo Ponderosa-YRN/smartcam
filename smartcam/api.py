@@ -779,6 +779,8 @@ def sources(request: Request):
             "running": bool(p.running if p else False),
             "status": p.stats["status"] if p else "unknown",
             "health": p.health() if p else "unknown",
+            # What the pipeline actually produces, as opposed to what the camera sends.
+            "fps": round(float(p.stats.get("fps") or 0.0), 1) if p else 0.0,
         })
     return out
 
@@ -890,13 +892,19 @@ def stream(request: Request, source_id: str):
 
     def gen():
         crlf = b"\x0d\x0a"
+        last_sent = -1
         try:
             while True:
-                if p.latest_frame is not None:
+                # Only send when the pipeline has published a new frame. The old loop pushed
+                # the same JPEG ten times a second, which on a hotel uplink is most of the
+                # bandwidth spent on frames the viewer already has.
+                key = int(p.stats.get("frames") or 0)
+                if key != last_sent and p.latest_frame is not None:
                     jpg = _cached_jpeg(source_id, p)
                     if jpg:
+                        last_sent = key
                         yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
-                _time.sleep(0.1)  # ~10 fps
+                _time.sleep(0.05)
         finally:
             # Runs when the client disconnects, which is the only way this generator ends.
             with _STREAM_LOCK:
