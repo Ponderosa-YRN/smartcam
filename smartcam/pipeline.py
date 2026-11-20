@@ -289,7 +289,10 @@ class CameraPipeline:
             self.stats["status"] = "stopped"
 
     def _open_capture(self):
+        import os
+
         import cv2
+
         from .config import ROOT
 
         uri = str(self.source.uri)
@@ -300,6 +303,12 @@ class CameraPipeline:
         else:
             p = Path(uri)
             target = str(p if p.is_absolute() else ROOT / p)
+        if uri.startswith(("rtsp://", "rtmp://")):
+            # RTSP defaults to UDP, which drops frames badly once latency climbs - a camera
+            # reached over a tunnel or a hotel link stutters or refuses to open at all. Making
+            # TCP the default removes a flag an operator has to remember on every container.
+            os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
+
         cap = cv2.VideoCapture(target)
         if not cap.isOpened() and not uri.isdigit():
             cap.release()
