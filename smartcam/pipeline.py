@@ -216,8 +216,11 @@ class CameraPipeline:
             else:
                 motion_idle = cfg.detection.motion_enabled and motion < cfg.detection.motion_threshold
                 idle = (ts - self._last_active) > 3.0
-                eff_imgsz = 320 if idle else cfg.detection.imgsz
-                eff_stride = max(cfg.detection.frame_stride, 8) if idle else cfg.detection.frame_stride
+                # 320 px was small enough that someone standing at a gate produced no detection
+                # at all - which meant nothing ever updated _last_active, so the pipeline stayed
+                # in this low-power mode and could not see the thing that would have woken it.
+                eff_imgsz = min(cfg.detection.imgsz, 480) if idle else cfg.detection.imgsz
+                eff_stride = max(cfg.detection.frame_stride, 4) if idle else cfg.detection.frame_stride
             if motion_idle:
                 self._last_dets = []
             elif frame_idx % max(1, eff_stride) == 0:
