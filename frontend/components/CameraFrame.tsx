@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchFrameBlob } from "@/lib/api";
+import { fetchStreamUrl } from "@/lib/api";
 
-// How often to ask for a new frame. The pipeline publishes several frames a second, so
-// polling every two seconds is what made movement look like a slideshow.
-const FRAME_MS = 250;
+// The stream token is good for ten minutes; refresh before that so a long-open tab does
+// not freeze. The existing <img> keeps showing frames while the new URL is fetched.
+const REFRESH_MS = 8 * 60 * 1000;
 
 function healthTone(health: string): "ok" | "warn" | "danger" | undefined {
   const h = (health || "").toLowerCase();
@@ -25,39 +25,33 @@ export default function CameraFrame({
   health: string;
 }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    let handle: ReturnType<typeof setTimeout> | null = null;
+    let refresh: ReturnType<typeof setTimeout> | null = null;
 
-    async function poll() {
-      const started = Date.now();
+    async function mint() {
       try {
-        const blob = await fetchFrameBlob(sourceId);
+        const next = await fetchStreamUrl(sourceId);
         if (cancelled) return;
-        setUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return URL.createObjectURL(blob);
-        });
+        setUrl(next);
+        refresh = setTimeout(mint, REFRESH_MS);
       } catch {
-        // frame may be unavailable (camera stopped) - keep the last frame
+        if (cancelled) return;
+        // Camera stopped, token refused, or the API is down: retry in a moment.
+        setUrl(null);
+        refresh = setTimeout(mint, 3000);
       }
-      if (cancelled) return;
-      // Scheduled from completion, not from the start: on a slow link an interval would
-      // queue requests faster than they complete and the picture would fall behind.
-      handle = setTimeout(poll, Math.max(0, FRAME_MS - (Date.now() - started)));
     }
 
-    poll();
+    mint();
     return () => {
       cancelled = true;
-      if (handle) clearTimeout(handle);
-      setUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
+      if (refresh) clearTimeout(refresh);
+      setUrl(null);
     };
-  }, [sourceId]);
+  }, [sourceId, nonce]);
 
   return (
     <div className="card">
@@ -66,7 +60,7 @@ export default function CameraFrame({
         <span className={"badge " + (healthTone(health) ?? "")}>{health || "unknown"}</span>
       </div>
       {url ? (
-        <img src={url} alt={name} className="cam-frame" />
+        <img src={url} alt={name} className="cam-frame" onError={() => setNonce((n) => n + 1)} />
       ) : (
         <div className="cam-frame placeholder">No frame yet</div>
       )}

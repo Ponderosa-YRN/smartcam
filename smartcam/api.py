@@ -816,6 +816,55 @@ def frame(request: Request, source_id: str):
     return Response(content=jpg, media_type="image/jpeg")
 
 
+_STREAM_TOKEN_MAX_AGE = 600  # seconds; long enough for a viewing session, short enough to matter
+_JPG_CACHE: dict[str, tuple[int, bytes]] = {}
+
+
+def _cached_jpeg(source_id: str, pipeline) -> bytes:
+    """Encode a frame once per published frame, however many viewers are watching.
+
+    Without the cache every open live view re-encodes the same picture; ten viewers would
+    cost ten times the CPU for one image.
+    """
+    key = int(pipeline.stats.get("frames") or 0)
+    hit = _JPG_CACHE.get(source_id)
+    if hit is not None and hit[0] == key and hit[1]:
+        return hit[1]
+    jpg = frame_to_jpeg_bytes(pipeline.latest_frame)
+    if jpg:
+        _JPG_CACHE[source_id] = (key, jpg)
+    return jpg
+
+
+def _stream_token(source_id: str, tenant: int | None) -> str:
+    return create_token({"typ": "stream", "sid": source_id, "tenant_id": tenant}, _get_secret())
+
+
+def _stream_authorised(request: Request, source_id: str) -> bool:
+    """Bearer header (normal API call) or a ?t= token minted for this one camera."""
+    if _can_see_source(request, source_id):
+        return True
+    tok = request.query_params.get("t", "")
+    if not tok:
+        return False
+    data = read_token(tok, _get_secret(), _STREAM_TOKEN_MAX_AGE)
+    if not data or data.get("typ") != "stream" or data.get("sid") != source_id:
+        return False
+    source = next((s for s in _mgr().cfg.sources if s.id == source_id), None)
+    if source is None:
+        return False
+    return source.tenant_id is None or source.tenant_id == data.get("tenant_id")
+
+
+@app.get("/api/stream-token/{source_id}")
+def stream_token(request: Request, source_id: str):
+    """Mint a short-lived URL for <img src>, because an image tag cannot send a header."""
+    if not _can_see_source(request, source_id):
+        raise HTTPException(status_code=404, detail="unknown source")
+    tok = _stream_token(source_id, _req_tenant(request))
+    return {"path": f"/api/stream/{source_id}?t={tok}", "expires_in": _STREAM_TOKEN_MAX_AGE}
+
+
 @app.get("/api/stream/{source_id}")
 def stream(request: Request, source_id: str):
     """Low-latency MJPEG stream. Point a browser <img src="/api/stream/{id}"> at it."""
@@ -823,7 +872,7 @@ def stream(request: Request, source_id: str):
 
     m = _mgr()
     p = m.pipelines.get(source_id)
-    if p is None or not _can_see_source(request, source_id):
+    if p is None or not _stream_authorised(request, source_id):
         raise HTTPException(status_code=404, detail="unknown source")
 
     with _STREAM_LOCK:
@@ -836,7 +885,7 @@ def stream(request: Request, source_id: str):
         try:
             while True:
                 if p.latest_frame is not None:
-                    jpg = frame_to_jpeg_bytes(p.latest_frame)
+                    jpg = _cached_jpeg(source_id, p)
                     if jpg:
                         yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
                 _time.sleep(0.1)  # ~10 fps

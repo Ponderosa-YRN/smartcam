@@ -246,6 +246,23 @@ export async function fetchFrameBlob(sourceId: string): Promise<Blob> {
   return res.blob();
 }
 
+/**
+ * URL for the MJPEG live stream, carrying a short-lived token in the query string.
+ *
+ * An <img> tag cannot send an Authorization header, so the token has to travel in the
+ * URL. It is minted by an authenticated call, scoped to one camera, and expires, so it
+ * is not the same thing as putting the session token in a query string.
+ */
+export async function fetchStreamUrl(sourceId: string): Promise<string> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  const res = await fetch(apiUrl("/api/stream-token/" + encodeURIComponent(sourceId)), { headers });
+  if (!res.ok) throw new Error(res.status + ": " + res.statusText);
+  const data = (await res.json()) as { path: string };
+  return apiUrl(data.path);
+}
+
 // -- restaurant tables -------------------------------------------------
 
 export type RestaurantTable = {
