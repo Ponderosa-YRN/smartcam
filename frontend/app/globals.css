@@ -775,37 +775,3 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .metric:hover { transform: none; }
 }
 
-
-/* ==========================================================================
-   KPI tile, size-aware
-   The tile adapts to its OWN width, not the viewport (size-aware-styling): the
-   grid gives it anywhere from ~190px to ~380px depending on column count, and
-   viewport media queries cannot see that. Default is the stacked layout, so a
-   narrow tile stays readable; the wide layout is the enhancement.
-   ========================================================================== */
-.metric {
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-2);
-}
-
-@container (min-width: 220px) {
-  .metric {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--sp-3);
-  }
-}
-
-/* No container query support: fall back to the wide layout at any size rather
-   than shipping a column of tiles on a desktop. */
-@supports not (container-type: inline-size) {
-  .metric {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--sp-3);
-  }
-}
-
