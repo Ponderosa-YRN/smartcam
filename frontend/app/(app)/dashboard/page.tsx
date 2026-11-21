@@ -112,37 +112,29 @@ export default function DashboardPage() {
       {error && <div className="alert-error">Some data could not be loaded: {error}</div>}
 
       <div className="metrics">
-        <Metric
-          label="Cameras online"
-          gradient="grad-blue"
-          icon={<IconCamera />}
-          value={online}
-          sub={"/ " + cameras.length}
-        />
-        <Metric
-          label="Open alerts"
-          gradient="grad-amber"
-          icon={<IconAlert />}
-          value={openAlerts.length}
-        />
-        <Metric
-          label="People on site"
-          gradient="grad-violet"
-          icon={<IconPeople />}
-          value={occ ? occ.people : "—"}
-        />
-        <Metric
-          label="Vehicles on site"
-          gradient="grad-emerald"
-          icon={<IconVehicle />}
-          value={occ ? occ.vehicles : "—"}
-        />
-        <Metric
-          label="Events today"
-          gradient="grad-rose"
-          icon={<IconActivity />}
-          value={todayCount}
-        />
+        <div className="card metric">
+          <div className="label">Cameras online</div>
+          <div className="big">
+            {online}
+            <span className="muted" style={{ fontSize: "1rem", fontWeight: 500 }}> / {cameras.length}</span>
+          </div>
+        </div>
+        <div className="card metric">
+          <div className="label">Open alerts</div>
+          <div className="big">{openAlerts.length}</div>
+        </div>
+        <div className="card metric">
+          <div className="label">People on site</div>
+          <div className="big">{occ ? occ.people : "—"}</div>
+        </div>
+        <div className="card metric">
+          <div className="label">Vehicles on site</div>
+          <div className="big">{occ ? occ.vehicles : "—"}</div>
+        </div>
+        <div className="card metric">
+          <div className="label">Events today</div>
+          <div className="big">{todayCount}</div>
+        </div>
       </div>
 
       <div className="dash-grid">
@@ -230,98 +222,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-
-
-/* -- KPI tile and its icons ------------------------------------------------ */
-
-function Metric({
-  label,
-  value,
-  sub,
-  gradient,
-  icon,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  gradient: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="card metric">
-      <span className={"metric-icon " + gradient} aria-hidden="true">
-        {icon}
-      </span>
-      <div className="metric-body">
-        <div className="label">{label}</div>
-        <div className="big">
-          {value}
-          {sub && <span className="metric-sub">{sub}</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Inline SVG rather than an icon dependency: four paths are cheaper than a
-   package, and they inherit currentColor. Decorative, so aria-hidden on the chip. */
-const iconProps = {
-  width: 20,
-  height: 20,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
-
-function IconCamera() {
-  return (
-    <svg {...iconProps}>
-      <path d="M2.5 7.5h11a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 15v-6a1.5 1.5 0 0 1 1.5-1.5Z" />
-      <path d="m15 11 5.2-2.6a.8.8 0 0 1 1.3.7v5.8a.8.8 0 0 1-1.3.7L15 13" />
-    </svg>
-  );
-}
-
-function IconAlert() {
-  return (
-    <svg {...iconProps}>
-      <path d="M10.3 3.9 2.4 17.4A2 2 0 0 0 4.1 20.4h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-      <path d="M12 9v4" />
-      <path d="M12 16.5h.01" />
-    </svg>
-  );
-}
-
-function IconPeople() {
-  return (
-    <svg {...iconProps}>
-      <path d="M16 20v-1.6a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20" />
-      <circle cx="9" cy="7" r="3.4" />
-      <path d="M22 20v-1.6a4 4 0 0 0-3-3.87" />
-      <path d="M16.5 4.2a3.4 3.4 0 0 1 0 6.4" />
-    </svg>
-  );
-}
-
-function IconVehicle() {
-  return (
-    <svg {...iconProps}>
-      <path d="M4.5 16.5V12l1.8-4.6A2 2 0 0 1 8.2 6h7.6a2 2 0 0 1 1.9 1.4L19.5 12v4.5" />
-      <path d="M3 12h18" />
-      <circle cx="7.5" cy="17.5" r="1.8" />
-      <circle cx="16.5" cy="17.5" r="1.8" />
-    </svg>
-  );
-}
-
-function IconActivity() {
-  return (
-    <svg {...iconProps}>
-      <path d="M3 12h3.5l2.5-7 4 14 2.5-7H21" />
-    </svg>
-  );
-}
-
