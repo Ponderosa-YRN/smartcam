@@ -45,10 +45,9 @@ git pull --ff-only
 echo "==> saving config.json out of the running container"
 docker cp "$NAME:/app/config.json" "$SAVED" 2>/dev/null || echo "    (no config.json yet - will start from defaults)"
 
-# The full image, not api.Dockerfile. The lean control-plane image carries no PyTorch,
+# The full image. A lean control-plane image was tried and removed: it carried no PyTorch,
 # OpenCV or ultralytics, so import, camera management, face recognition and re-ID all
-# answer 503 on it by design. Detection has to run somewhere, and for a single-VPS
-# deployment this is where.
+# answered 503 on it. Detection has to run somewhere, and for one VPS this is where.
 if [ -r /proc/meminfo ]; then
   avail=$(awk '/MemAvailable/ {printf "%d", $2/1024}' /proc/meminfo)
   echo "    available memory: ${avail} MB (the build and CPU inference want ~1 GB free)"

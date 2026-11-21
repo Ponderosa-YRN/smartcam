@@ -26,7 +26,7 @@ What already exists and maps to a product:
 - **Roles** — `admin / security / manager / viewer`, gated via `ROLE_TABS` in `app.py`.
 - **Detection pipeline** — `CameraPipeline` + `PipelineManager`: YOLOv8 (now ONNX by default) + ByteTrack, zones, fall pose, abandoned object, ALPR (EasyOCR), face recognition (deepface Facenet), multi-camera ReID (torchreid OSNet), occupancy, heatmaps, retention, privacy blur, E2E-encrypted notifications (ntfy), webhooks, VLM summaries (OpenAI/Ollama).
 - **Data** — SQLite (`smartcam/db.py`) with 8 tables (`events, plates, faces, face_matches, appearances, identities, sightings, occupancy_samples`) and `PRAGMA user_version` migrations.
-- **Ops** — Dockerfile, docker-compose, systemd unit, `deploy/README.md`.
+- **Ops** — Dockerfile, docker-compose, Caddy in front of both tiers on one VPS.
 
 What is **missing** for a multi-user web product (the hard gaps):
 
