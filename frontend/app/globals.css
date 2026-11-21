@@ -703,3 +703,75 @@ button:active:not(:disabled) { transform: translateY(1px); }
   color: var(--text-dim);
 }
 
+
+/* ==========================================================================
+   KPI tiles — icon chip, label, figure
+   Swiss/minimal: one accent per tile, no gradient inside the number itself.
+   ========================================================================== */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: var(--sp-3);
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.metric:hover { transform: translateY(-1px); border-color: var(--border-strong); }
+
+.metric-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: #fff;
+}
+
+.metric-body { min-width: 0; }
+
+.metric .label {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.metric .big {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.52rem;
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+}
+
+.metric-sub {
+  font-family: var(--font-sans);
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0;
+}
+
+/* Gradient chips. One hue pair each, and a shadow of the same hue so the chip
+   looks lit rather than pasted on. */
+.grad-blue    { background-image: linear-gradient(135deg, #4b8cff, #22d3ee); box-shadow: 0 10px 22px -12px rgba(75, 140, 255, .95); }
+.grad-amber   { background-image: linear-gradient(135deg, #fbbf24, #f97316); box-shadow: 0 10px 22px -12px rgba(249, 115, 22, .95); }
+.grad-violet  { background-image: linear-gradient(135deg, #a78bfa, #6366f1); box-shadow: 0 10px 22px -12px rgba(99, 102, 241, .95); }
+.grad-emerald { background-image: linear-gradient(135deg, #34d399, #0ea5e9); box-shadow: 0 10px 22px -12px rgba(14, 165, 233, .95); }
+.grad-rose    { background-image: linear-gradient(135deg, #fb7185, #e11d48); box-shadow: 0 10px 22px -12px rgba(225, 29, 72, .95); }
+
+@media (prefers-reduced-motion: reduce) {
+  .metric:hover { transform: none; }
+}
+
