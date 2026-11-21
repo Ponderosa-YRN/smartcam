@@ -16,21 +16,14 @@
 #   SITE_REPEAT_SEC   re-alert while still down (default 6 hours)
 set -euo pipefail
 
-ENV_FILE=${DISK_ALERT_ENV_FILE:-/root/.smartcam-alert.env}
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$ENV_FILE"
-  set +a
-fi
+# shellcheck source=lib/alert.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/alert.sh"
 
 URL=${SITE_URL:-https://agay.tech/}
 EXPECT=${SITE_EXPECT:-Know what happened}
 API_URL=${SITE_API_URL:-https://agay.tech/smartapi/api/health}
 STATE=${SITE_STATE:-/var/tmp/smartcam-site}
 REPEAT=${SITE_REPEAT_SEC:-21600}
-TOKEN=${TELEGRAM_BOT_TOKEN:-}
-CHAT=${TELEGRAM_CHAT_ID:-}
 
 now=$(date +%s)
 tmp=$(mktemp)
@@ -63,32 +56,20 @@ if [ -f "$STATE" ]; then
 fi
 prev_ts=${prev_ts:-0}
 
-send() {
-  local msg="$1"
-  echo "$(date -Is) $msg"
-  if [ -n "$TOKEN" ] && [ -n "$CHAT" ]; then
-    curl -fsS -m 10 -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
-      --data-urlencode "chat_id=$CHAT" \
-      --data-urlencode "text=$msg" >/dev/null || echo "WARNING: could not deliver to Telegram" >&2
-  else
-    echo "NOTE: no Telegram credentials in $ENV_FILE" >&2
-  fi
-}
-
 if [ "$ok" = "1" ]; then
   if [ "$prev_state" = "fail" ]; then
     mins=$(( (now - prev_ts) / 60 ))
-    send "SmartCam: site is responding again (was down about ${mins} min)."
+    alert "SmartCam: site is responding again (was down about ${mins} min)."
   fi
   printf 'ok\t%s\t\n' "$now" > "$STATE"
   exit 0
 fi
 
 if [ "$prev_state" != "fail" ]; then
-  send "SmartCam: SITE DOWN - $reason"
+  alert "SmartCam: SITE DOWN - $reason"
 elif [ $(( now - prev_ts )) -ge "$REPEAT" ]; then
   mins=$(( (now - prev_ts) / 3600 ))
-  send "SmartCam: STILL DOWN after ${mins}h - $reason"
+  alert "SmartCam: STILL DOWN after ${mins}h - $reason"
 fi
 
 printf 'fail\t%s\t%s\n' "$now" "$reason" > "$STATE"

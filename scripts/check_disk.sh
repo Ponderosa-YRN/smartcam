@@ -18,19 +18,12 @@
 #   DISK_ALERT_STATE      marker to avoid repeating daily    (default /var/tmp/smartcam-disk)
 set -euo pipefail
 
-ENV_FILE=${DISK_ALERT_ENV_FILE:-/root/.smartcam-alert.env}
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  # shellcheck disable=SC1090
-  . "$ENV_FILE"
-  set +a
-fi
+# shellcheck source=lib/alert.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/alert.sh"
 
 THRESHOLD=${DISK_ALERT_THRESHOLD:-85}
 WATCH=${DISK_ALERT_PATH:-/}
 STATE=${DISK_ALERT_STATE:-/var/tmp/smartcam-disk}
-TOKEN=${TELEGRAM_BOT_TOKEN:-}
-CHAT=${TELEGRAM_CHAT_ID:-}
 
 usage=$(df -P "$WATCH" | awk 'NR==2 {gsub("%","",$5); print $5}')
 today=$(date +%F)
@@ -54,17 +47,7 @@ fi
 free=$(df -h "$WATCH" | awk 'NR==2 {print $4}')
 msg="SmartCam: disk $WATCH is ${usage}% full (warning at ${THRESHOLD}%), $free free on $(hostname)"
 
-echo "$(date -Is) $msg"
-
-if [ -n "$TOKEN" ] && [ -n "$CHAT" ]; then
-  if ! curl -fsS -m 10 -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
-      --data-urlencode "chat_id=$CHAT" \
-      --data-urlencode "text=$msg" >/dev/null; then
-    echo "WARNING: could not deliver the alert to Telegram" >&2
-  fi
-else
-  echo "NOTE: no Telegram credentials in $ENV_FILE, so nothing was sent beyond this log line." >&2
-fi
+alert "$msg"
 
 echo "$today" > "$STATE"
 
