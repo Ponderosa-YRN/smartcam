@@ -39,3 +39,4 @@ screenshot pic/
 !yolov8n.pt
 !yolov8n-pose.pt
 runs/
+.npm-cache/
