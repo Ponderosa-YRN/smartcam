@@ -157,5 +157,5 @@ finishes — the list of events it found.
   unless you've installed their dependencies and tested them live. Detection,
   tracking, events, search, and analytics are rock solid — lead with those.
 - **If a live camera fails**, pivot immediately to Import — it never fails.
-- **Have the docs open:** docs/APP_OVERVIEW.md for details, docs/ARCHITECTURE.md
-  for the "where this goes next" multi-site/cloud story.
+- **Have the docs open:** docs/APP_OVERVIEW.md for detail, docs/HOTEL-ONBOARDING.md
+  for the multi-site and field story.

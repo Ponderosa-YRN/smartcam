@@ -46,7 +46,7 @@ Two ways the system runs today:
               v
     [ SQLite database ]  (events, plates, faces, users, tenants, ...)
 
-**Future (documented in docs/ARCHITECTURE.md):** hybrid **edge + cloud** —
+**Future (documented in docs/EDGE-BOX-SETUP.md):** hybrid **edge + cloud** —
 one on-site box per hotel does the heavy inference near the cameras; a cloud
 control plane handles identity, tenants, notifications, and cross-site search.
 

@@ -1,7 +1,7 @@
 # SmartCam — Web Hosting & Migration Plan
 
-Status: plan. Companion to docs/ARCHITECTURE.md. This is the forward roadmap for
-turning the single-box app into a hosted multi-tenant SaaS serving Nigerian hotels.
+Status: plan. This is the forward roadmap for turning the single-box app into a hosted
+multi-tenant SaaS serving Nigerian hotels.
 Parts of it are now history rather than plan: the deployment is live at agay.tech.
 
 ## 1. Target architecture (hybrid edge + cloud)
