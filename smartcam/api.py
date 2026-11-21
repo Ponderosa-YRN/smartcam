@@ -901,10 +901,8 @@ def stream_token(request: Request, source_id: str):
 
 
 @app.get("/api/stream/{source_id}")
-def stream(request: Request, source_id: str):
+async def stream(request: Request, source_id: str):
     """Low-latency MJPEG stream. Point a browser <img src="/api/stream/{id}"> at it."""
-    import time as _time
-
     m = _mgr()
     p = m.pipelines.get(source_id)
     if p is None or not _stream_authorised(request, source_id):
@@ -915,25 +913,29 @@ def stream(request: Request, source_id: str):
             raise HTTPException(status_code=503, detail="too many live viewers, close another tab")
         _STREAMS["open"] += 1
 
-    def gen():
+    async def gen():
         crlf = b"\x0d\x0a"
         last_sent = -1
         try:
             while True:
-                # Only send when the pipeline has published a new frame. The old loop pushed
-                # the same JPEG ten times a second, which on a hotel uplink is most of the
-                # bandwidth spent on frames the viewer already has.
+                # Stop as soon as the browser goes away. Without this the generator sits in
+                # the thread pool holding a worker forever, and enough of them starve the
+                # whole API - every page then hangs on "Loading SmartCam".
+                if await request.is_disconnected():
+                    break
                 key = int(p.stats.get("frames") or 0)
                 if key != last_sent and p.latest_frame is not None:
-                    jpg = _cached_jpeg(
-                        source_id, p, max_width=_STREAM_MAX_WIDTH, quality=_STREAM_JPEG_QUALITY
+                    # Encoding is CPU work; keep it off the event loop so the rest of the
+                    # API keeps answering while frames are being made.
+                    jpg = await asyncio.to_thread(
+                        _cached_jpeg, source_id, p,
+                        _STREAM_MAX_WIDTH, _STREAM_JPEG_QUALITY,
                     )
                     if jpg:
                         last_sent = key
                         yield b"--frame" + crlf + b"Content-Type: image/jpeg" + crlf + crlf + jpg + crlf
-                _time.sleep(0.05)
+                await asyncio.sleep(0.05)
         finally:
-            # Runs when the client disconnects, which is the only way this generator ends.
             with _STREAM_LOCK:
                 _STREAMS["open"] -= 1
 
