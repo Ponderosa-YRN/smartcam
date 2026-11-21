@@ -546,3 +546,160 @@ input[type="file"] {
   pointer-events: none;
 }
 
+
+/* ==========================================================================
+   v2 — operator console
+   Additive layer. Redefines the tokens from the top of this file and refines
+   base elements only, so every page inherits it without touching a component.
+   ========================================================================== */
+:root {
+  /* Surfaces: three real steps plus a hairline highlight, so cards read as
+     layers rather than outlines. */
+  --bg:            #0a0d13;
+  --surface:       #12161f;
+  --surface-2:     #171c27;
+  --surface-3:     #1d2331;
+  --surface-hover: #1a2029;
+  --border:        #232a38;
+  --border-strong: #313a4c;
+  --hairline:      rgba(255, 255, 255, .06);
+
+  --text:          #e8ecf3;
+  --text-muted:    #98a1b3;
+  --text-dim:      #6a7385;
+
+  --brand:         #4b8cff;
+  --brand-hover:   #3d7bf0;
+  --brand-soft:    rgba(75, 140, 255, .13);
+  --ok:            #34d399;
+  --ok-soft:       rgba(52, 211, 153, .12);
+  --warn:          #fbbf24;
+  --warn-soft:     rgba(251, 191, 36, .12);
+  --danger:        #f87171;
+  --danger-soft:   rgba(248, 113, 113, .12);
+
+  --r-sm: 7px;
+  --r:    10px;
+  --r-lg: 14px;
+
+  /* Elevation: a 1px inset highlight plus a soft drop, both very light. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .45);
+  --shadow:    0 1px 2px rgba(0, 0, 0, .45), 0 6px 18px -8px rgba(0, 0, 0, .65);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 40px -16px rgba(0, 0, 0, .8);
+
+  --sidebar-w: 244px;
+  --topbar-h:  60px;
+
+  /* Type scale: fluid on the two display sizes, fixed below them so tables
+     and forms keep a predictable rhythm. */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --fs-display: clamp(1.5rem, .9rem + 1.4vw, 1.95rem);
+  --fs-h1:      clamp(1.3rem, .95rem + .9vw, 1.55rem);
+  --fs-h2:      1.02rem;
+  --fs-body:    .9375rem;
+  --fs-sm:      .875rem;
+  --fs-xs:      .78rem;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --dur:  160ms;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  background:
+    radial-gradient(80rem 40rem at 50% -20%, rgba(75, 140, 255, .06), transparent 60%),
+    var(--bg);
+  text-rendering: optimizeLegibility;
+}
+
+h1 {
+  font-size: var(--fs-h1);
+  font-weight: 640;
+  letter-spacing: -.022em;
+  line-height: 1.2;
+}
+h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -.012em; }
+h3 { font-weight: 600; }
+
+/* Numbers are data: align them and give them room. */
+.num, .kpi-value, td.numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Interaction feedback the old stylesheet never had. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+::selection { background: rgba(75, 140, 255, .28); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+/* Route transitions where the browser supports them; a plain swap elsewhere. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: fade-out var(--dur) var(--ease); }
+::view-transition-new(root) { animation: fade-in var(--dur) var(--ease); }
+
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+  @view-transition { navigation: none; }
+}
+
+
+/* Cards sit on the background instead of being outlined on it. */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 var(--hairline);
+}
+
+button {
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  border-radius: var(--r-sm);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+button:active:not(:disabled) { transform: translateY(1px); }
+
+.badge {
+  font-size: var(--fs-xs);
+  letter-spacing: .02em;
+  border-radius: 999px;
+}
+
+/* Section labels in the sidebar read as labels, not as content. */
+.nav-section, .side-section, .sidebar-section {
+  font-size: .68rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
