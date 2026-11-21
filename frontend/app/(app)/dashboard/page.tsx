@@ -247,8 +247,10 @@ function Metric({
   gradient: string;
   icon: React.ReactNode;
 }) {
+  // <article> because the tile is a self-contained piece of content, not a generic
+  // container. Regions stay direct children so the container query can place them.
   return (
-    <div className="card metric">
+    <article className="card metric">
       <span className={"metric-icon " + gradient} aria-hidden="true">
         {icon}
       </span>
@@ -259,7 +261,7 @@ function Metric({
           {sub && <span className="metric-sub">{sub}</span>}
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 
