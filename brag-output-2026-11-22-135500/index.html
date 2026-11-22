@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SmartCam</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #0a0d13; }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0a0d13;
+        color: #e8ecf3;
+        font-family: Inter, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+      .scene { position: absolute; inset: 0; }
+      .center { display: flex; align-items: center; justify-content: center; }
+
+      /* hook: nine CCTV tiles */
+      #grid-hook {
+        position: absolute; inset: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 10px;
+        padding: 120px 220px;
+      }
+      .tile {
+        position: relative;
+        background: #0f1219;
+        border: 1px solid #1b2130;
+        overflow: hidden;
+      }
+      .tile::before {
+        content: "";
+        position: absolute; inset: 0;
+        background:
+          repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
+          radial-gradient(120% 90% at 50% 20%, rgba(120,150,200,.07), transparent 70%);
+      }
+      .tile-label {
+        position: absolute; left: 16px; bottom: 12px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px; color: #55607a; letter-spacing: .06em;
+      }
+      #hook-line {
+        position: absolute; left: 0; right: 0; bottom: 150px;
+        text-align: center;
+        font-size: 46px; font-weight: 700; letter-spacing: -.02em;
+      }
+      #hook-line span { color: #e8ecf3; }
+
+      /* the cut */
+      #cut {
+        position: absolute; inset: 0;
+        background: #0a0d13;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #cut-text {
+        font-size: 78px; font-weight: 700; letter-spacing: -.03em;
+        color: #e8ecf3;
+      }
+
+      /* reveal */
+      #reveal { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+      #mark { font-size: 108px; font-weight: 900; letter-spacing: -.04em; }
+      #mark-rule {
+        position: absolute; left: 50%; transform: translateX(-50%);
+        top: 640px; height: 4px; background: #4b8cff; width: 320px;
+        transform-origin: left center;
+      }
+
+      /* description */
+      #describe { position: absolute; inset: 0; }
+      #desc-frame {
+        position: absolute; left: 140px; top: 120px; width: 760px; height: 620px;
+        background: linear-gradient(160deg, #171d29, #0e1219);
+        border: 1px solid #232a38;
+        filter: brightness(.75);
+      }
+      #desc-text {
+        position: absolute; right: 120px; top: 190px; width: 820px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 30px; line-height: 1.62; color: #c9d2e2;
+      }
+      #desc-cap {
+        position: absolute; right: 120px; top: 800px; width: 820px;
+        font-size: 40px; font-weight: 700; letter-spacing: -.02em;
+      }
+
+      /* detection */
+      #detect { position: absolute; inset: 0; }
+      #det-frame {
+        position: absolute; left: 240px; top: 120px; width: 1020px; height: 700px;
+        background: radial-gradient(90% 80% at 50% 60%, #1a2230, #0d1119 75%);
+        border: 1px solid #232a38;
+      }
+      #person { position: absolute; left: 400px; top: 330px; }
+      .bracket {
+        position: absolute; width: 62px; height: 62px;
+        border-color: #4b8cff; border-style: solid; border-width: 0;
+      }
+      #b-tl { left: 0; top: 0; border-left-width: 4px; border-top-width: 4px; }
+      #b-tr { right: 0; top: 0; border-right-width: 4px; border-top-width: 4px; }
+      #b-bl { left: 0; bottom: 0; border-left-width: 4px; border-bottom-width: 4px; }
+      #b-br { right: 0; bottom: 0; border-right-width: 4px; border-bottom-width: 4px; }
+      #det-label {
+        position: absolute; left: 400px; top: 292px;
+        font-family: "JetBrains Mono", monospace; font-size: 24px; color: #4b8cff;
+      }
+      #det-meta {
+        position: absolute; left: 240px; bottom: 130px;
+        font-family: "JetBrains Mono", monospace; font-size: 24px; color: #98a1b3;
+        letter-spacing: .05em;
+      }
+      #det-cap {
+        position: absolute; right: 130px; top: 470px; width: 520px;
+        font-size: 46px; font-weight: 700; line-height: 1.28; letter-spacing: -.02em;
+      }
+
+      /* report */
+      #report { position: absolute; inset: 0; }
+      #report-cap {
+        position: absolute; left: 160px; top: 250px; width: 620px;
+        font-size: 52px; font-weight: 700; line-height: 1.24; letter-spacing: -.025em;
+      }
+      #page {
+        position: absolute; right: 200px; top: 130px; width: 620px; height: 840px;
+        background: #f4f6fa; color: #12161f;
+        box-shadow: 0 40px 90px -30px rgba(0,0,0,.85);
+        padding: 46px 44px;
+        box-sizing: border-box;
+      }
+      #page h4 {
+        margin: 0 0 6px; font-size: 26px; letter-spacing: -.01em; font-weight: 700;
+      }
+      #page .sub { font-family: "JetBrains Mono", monospace; font-size: 15px; color: #5c6678; }
+      #page .rule { height: 2px; background: #12161f; margin: 20px 0 22px; }
+      #page .still {
+        width: 100%; height: 260px; margin: 8px 0 22px;
+        background: linear-gradient(160deg, #2a3242, #10141c);
+      }
+      #page .row {
+        display: flex; justify-content: space-between;
+        font-family: "JetBrains Mono", monospace; font-size: 16px;
+        padding: 10px 0; border-bottom: 1px solid #d3d9e4; color: #2a3242;
+      }
+      #page .row span:last-child { color: #12161f; }
+
+      /* eight tiles */
+      #scale { position: absolute; inset: 0; }
+      #grid-scale {
+        position: absolute; left: 480px; top: 180px;
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+        width: 960px;
+      }
+      #grid-scale .tile { height: 200px; }
+      #scale-cap {
+        position: absolute; left: 0; right: 0; bottom: 170px; text-align: center;
+        font-size: 52px; font-weight: 700; letter-spacing: -.025em;
+      }
+
+      /* outro */
+      #outro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; }
+      .outro-line { font-size: 64px; font-weight: 700; letter-spacing: -.03em; }
+      #outro-url {
+        font-family: "JetBrains Mono", monospace; font-size: 30px; color: #98a1b3;
+        letter-spacing: .08em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="20.1" data-width="1920" data-height="1080">
+
+      <div id="scene-hook" class="scene clip" data-start="0" data-duration="3">
+        <div id="grid-hook">
+          <div class="tile"><div class="tile-label">CAM 01</div></div>
+          <div class="tile"><div class="tile-label">CAM 02</div></div>
+          <div class="tile"><div class="tile-label">CAM 03</div></div>
+          <div class="tile"><div class="tile-label">CAM 07</div></div>
+          <div class="tile"><div class="tile-label">CAM 09</div></div>
+          <div class="tile"><div class="tile-label">CAM 12</div></div>
+          <div class="tile"><div class="tile-label">CAM 13</div></div>
+          <div class="tile"><div class="tile-label">CAM 22</div></div>
+          <div class="tile"><div class="tile-label">CAM 30</div></div>
+        </div>
+        <div id="hook-line"><span>You already own 32 cameras.</span></div>
+      </div>
+
+      <div id="scene-cut" class="scene clip" data-start="3" data-duration="0.9">
+        <div id="cut"><div id="cut-text">Nobody is watching them.</div></div>
+      </div>
+
+      <div id="scene-reveal" class="scene clip" data-start="3.9" data-duration="2.4">
+        <div id="reveal">
+          <div id="mark">SmartCam</div>
+          <div id="mark-rule"></div>
+        </div>
+      </div>
+
+      <div id="scene-describe" class="scene clip" data-start="6.3" data-duration="3.5">
+        <div id="desc-frame"></div>
+        <div id="desc-text">At 23:34 on Camera 07, a single person is visible, seated at a desk. No vehicles or additional people are in the immediate vicinity.</div>
+        <div id="desc-cap">It watches. And writes down what it saw.</div>
+      </div>
+
+      <div id="scene-detect" class="scene clip" data-start="9.8" data-duration="3.8">
+        <div id="det-frame"></div>
+        <div id="person">
+          <svg width="220" height="360" viewBox="0 0 220 360" fill="none">
+            <ellipse cx="110" cy="72" rx="52" ry="60" fill="#2b3444"/>
+            <path d="M18 360c0-62 41-104 92-104s92 42 92 104z" fill="#2b3444"/>
+          </svg>
+          <span class="bracket" id="b-tl"></span>
+          <span class="bracket" id="b-tr"></span>
+          <span class="bracket" id="b-bl"></span>
+          <span class="bracket" id="b-br"></span>
+        </div>
+        <div id="det-label">person 0.87</div>
+        <div id="det-meta">CAMERA 07 &nbsp;/&nbsp; 23:34:27</div>
+        <div id="det-cap">Not a highlight reel.<br />Instrumentation.</div>
+      </div>
+
+      <div id="scene-report" class="scene clip" data-start="13.6" data-duration="3.3">
+        <div id="report-cap">One page.<br />Time, camera,<br />still frame.</div>
+        <div id="page">
+          <h4>Incident report</h4>
+          <div class="sub">SmartCam &middot; generated 23:35</div>
+          <div class="rule"></div>
+          <div class="still"></div>
+          <div class="row"><span>CAMERA</span><span>Camera 07</span></div>
+          <div class="row"><span>TIME</span><span>23:34:27</span></div>
+          <div class="row"><span>DETECTED</span><span>person</span></div>
+          <div class="row"><span>CONFIDENCE</span><span>0.87</span></div>
+          <div class="row"><span>STATUS</span><span>open</span></div>
+        </div>
+      </div>
+
+      <div id="scene-scale" class="scene clip" data-start="16.9" data-duration="1.6">
+        <div id="grid-scale">
+          <div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div>
+          <div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div>
+        </div>
+        <div id="scale-cap">8 cameras. Your DVR. One box.</div>
+      </div>
+
+      <div id="scene-outro" class="scene clip" data-start="18.5" data-duration="1.6">
+        <div id="outro">
+          <div class="outro-line" id="outro-1">Your DVR was already looking.</div>
+          <div class="outro-line" id="outro-2">Now it tells you.</div>
+          <div id="outro-url">agay.tech</div>
+        </div>
+      </div>
+
+      <audio class="clip" data-start="0" data-duration="20.1" data-volume="0.32" data-fade-in="0.6" data-fade-out="1.2" src="assets/music/track.mp3"></audio>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      window.__timelines["main"] = tl;
+
+      // HOOK - nine tiles blink on, one per beat
+      const tiles = gsap.utils.toArray("#grid-hook .tile");
+      tiles.forEach((tile, i) => {
+        tl.fromTo(tile, { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "none" }, 0.27 + i * 0.18);
+      });
+      tl.fromTo("#hook-line", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 1.90);
+
+      // CUT - silent, still, then the line
+      tl.fromTo("#cut-text", { opacity: 0 }, { opacity: 1, duration: 0.24, ease: "none" }, 3.24);
+
+      // REVEAL
+      tl.fromTo("#mark", { opacity: 0, letterSpacing: "-0.10em" }, { opacity: 1, letterSpacing: "-0.04em", duration: 0.55, ease: "power3.out" }, 3.95);
+      tl.fromTo("#mark-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.inOut" }, 4.45);
+
+      // DESCRIPTION - lines settle, then hold
+      tl.fromTo("#desc-frame", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "none" }, 6.35);
+      tl.fromTo("#desc-text", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 6.60);
+      tl.fromTo("#desc-cap", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 8.30);
+
+      // DETECT - brackets snap, label follows
+      tl.fromTo("#det-frame", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "none" }, 9.85);
+      ["#b-tl", "#b-tr", "#b-bl", "#b-br"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, scale: 1.35 }, { opacity: 1, scale: 1, duration: 0.16, ease: "power3.out" }, 10.30 + i * 0.09);
+      });
+      tl.fromTo("#det-label", { opacity: 0 }, { opacity: 1, duration: 0.24, ease: "none" }, 10.70);
+      tl.fromTo("#det-meta", { opacity: 0 }, { opacity: 1, duration: 0.24, ease: "none" }, 10.90);
+      tl.fromTo("#det-cap", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 11.40);
+
+      // REPORT - the page rises
+      tl.fromTo("#page", { opacity: 0, y: 90 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 13.65);
+      tl.fromTo("#report-cap", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 14.00);
+
+      // SCALE - eight tiles snap in
+      const scaleTiles = gsap.utils.toArray("#grid-scale .tile");
+      scaleTiles.forEach((tile, i) => {
+        tl.fromTo(tile, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.14, ease: "power2.out" }, 16.95 + i * 0.07);
+      });
+      tl.fromTo("#scale-cap", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "none" }, 17.55);
+
+      // OUTRO - three lines on the strong beats
+      tl.fromTo("#outro-1", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 18.55);
+      tl.fromTo("#outro-2", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 19.10);
+      tl.fromTo("#outro-url", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "none" }, 19.70);
+    </script>
+  </body>
+</html>
