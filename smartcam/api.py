@@ -943,8 +943,24 @@ async def stream(request: Request, source_id: str):
 
 
 @app.get("/api/events")
-def events(request: Request, limit: int = 100, camera_id: str | None = None, event_type: str | None = None, order: str = "DESC"):
-    return _mgr().store.list_events(limit=limit, camera_id=camera_id, event_type=event_type, order=order, tenant_id=_req_tenant(request))
+def events(
+    request: Request,
+    limit: int = 100,
+    camera_id: str | None = None,
+    event_type: str | None = None,
+    order: str = "DESC",
+    slim: bool = False,
+):
+    rows = _mgr().store.list_events(
+        limit=limit, camera_id=camera_id, event_type=event_type, order=order, tenant_id=_req_tenant(request)
+    )
+    if slim:
+        # The AI summary is several hundred characters per row and the dashboard renders
+        # eight rows of four fields. Callers that need the prose keep asking for it.
+        for row in rows:
+            row.pop("summary", None)
+            row.pop("summary_model", None)
+    return rows
 
 
 @app.get("/api/clips/{event_id}")

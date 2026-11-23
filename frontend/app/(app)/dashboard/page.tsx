@@ -16,7 +16,7 @@ import CameraFrame from "@/components/CameraFrame";
 import LiveFeed from "@/components/LiveFeed";
 import { startOfToday, timeAgo } from "@/lib/format";
 
-const REFRESH_MS = 15000;
+const REFRESH_MS = 5000;
 
 async function settle<T>(p: Promise<T>, fallback: T, note: (msg: string) => void): Promise<T> {
   try {
@@ -44,7 +44,9 @@ export default function DashboardPage() {
     const [c, a, e, o] = await Promise.all([
       settle(listSources(), [] as CameraSource[], note),
       settle(listAlerts(50), [] as OpenAlert[], note),
-      settle(listEvents(200), [] as EventItem[], note),
+      // slim: the tile counts these rows, the table renders eight of them, and neither
+      // reads the AI summary - so stop shipping 200 of them every five seconds.
+      settle(listEvents(200, { slim: true }), [] as EventItem[], note),
       settle(occupancy(), null as Occupancy | null, note),
     ]);
     setCameras(c);
@@ -105,7 +107,7 @@ export default function DashboardPage() {
       <div className="page-head">
         <h1>Dashboard</h1>
         <p className="sub">
-          {updated ? "Updated " + new Date(updated).toLocaleTimeString() : ""} · refreshes every 15s
+          {updated ? "Updated " + new Date(updated).toLocaleTimeString() : ""} · refreshes every 5s
         </p>
       </div>
 

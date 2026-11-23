@@ -380,11 +380,12 @@ export async function getSourceStatus(id: string): Promise<SourceStatus> {
 
 export async function listEvents(
   limit = 50,
-  filters?: { camera_id?: string; event_type?: string }
+  filters?: { camera_id?: string; event_type?: string; slim?: boolean }
 ): Promise<EventItem[]> {
   let q = "/api/events?limit=" + limit;
   if (filters?.camera_id) q += "&camera_id=" + encodeURIComponent(filters.camera_id);
   if (filters?.event_type) q += "&event_type=" + encodeURIComponent(filters.event_type);
+  if (filters?.slim) q += "&slim=true";
   return request<EventItem[]>(q);
 }
 

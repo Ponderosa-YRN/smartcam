@@ -208,7 +208,14 @@ class CameraPipeline:
                 self._left = 0
             frame = resize_frame(frame, cfg.events.clip_max_width)
 
-            motion = self._motion_score(frame)
+            # Only worth computing when it gates something: motion_enabled is off on most
+            # installs, and on a fast source the score is unused, so this was a full-frame
+            # greyscale resample plus an absdiff per frame for a value nothing read.
+            motion = (
+                self._motion_score(frame)
+                if cfg.detection.motion_enabled and not self.source.fast
+                else 0.0
+            )
             if self.source.fast:
                 motion_idle = False
                 eff_imgsz = 320
